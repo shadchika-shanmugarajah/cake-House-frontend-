@@ -1,0 +1,378 @@
+/* src/components/client/Reviews.css */
+.reviews-section {
+  padding: 4rem 20px;
+  background: #fffaf5;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.section-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #333;
+  margin-top: -130px;
+}
+
+.section-subtitle {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.reviews-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.stats-card {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease;
+  margin-top: 40px;
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+}
+
+.stats-number {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #ff6b8b;
+  margin-bottom: 0.5rem;
+}
+
+.stars-large {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin-bottom: 0.5rem;
+}
+
+.stats-label {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-bottom: 4rem;
+  margin-top: -30px;
+}
+
+.review-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease;
+}
+
+.review-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.reviewer-info {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.reviewer-avatar {
+  width: 40px;
+  height: 40px;
+  background: #ff6b8b;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.reviewer-name {
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.verified-badge {
+  background: #4CAF50;
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.review-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 0.25rem;
+}
+
+.order-type {
+  color: #ff6b8b;
+  font-weight: 500;
+}
+
+.review-rating {
+  display: flex;
+  gap: 2px;
+}
+
+.review-comment {
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.review-image {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.review-image img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.image-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.add-review-section {
+  background: white;
+  padding: 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.05);
+}
+
+.add-review-section h3 {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.add-review-section p {
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+.review-form {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #ff6b8b;
+}
+
+.rating-selector {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: #E5E7EB;
+  transition: color 0.2s ease;
+}
+
+.star-btn.active {
+  color: #FFD700;
+}
+
+.star-btn:hover {
+  color: #FFD700;
+}
+
+.submit-review-btn {
+  background: #ff6b8b;
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: block;
+  margin: 0 auto;
+}
+
+.submit-review-btn:hover {
+  background: #ff5252;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .reviews-stats {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .add-review-section {
+    padding: 1.5rem;
+  }
+  
+  .section-title {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .reviews-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .review-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  flex-wrap: wrap; /* Allow wrapping on small screens */
+}
+
+.reviewer-info {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start; /* Changed from center to flex-start */
+  flex: 1; /* Take available space */
+  min-width: 0; /* Allow text to shrink */
+}
+
+.reviewer-details {
+  flex: 1;
+  min-width: 0; /* Important for text truncation */
+}
+
+.reviewer-name {
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap; /* Allow wrapping */
+}
+
+.review-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 0.25rem;
+  flex-wrap: wrap; /* Allow wrapping */
+  line-height: 1.4;
+}
+
+/* Or better - make the reviewer name and meta stack properly */
+.reviewer-name {
+  font-weight: 600;
+  color: #333;
+  display: block; /* Change to block */
+  margin-bottom: 0.25rem;
+}
+
+.reviewer-name-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.review-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #999;
+  flex-wrap: wrap;
+  line-height: 1.4;
+}

@@ -1,0 +1,118 @@
+.register-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fffaf0 0%, #fff5f5 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px 50px;
+}
+
+.register-container {
+  width: 100%;
+  max-width: 500px;
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 3rem;
+}
+
+.register-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.register-logo {
+  display: inline-block;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  text-decoration: none;
+  margin-bottom: 1rem;
+}
+
+.register-header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+}
+
+.register-header p {
+  color: var(--text-light);
+  font-size: 1rem;
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.terms-agreement {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 1rem;
+}
+
+.terms-agreement input[type="checkbox"] {
+  margin-top: 3px;
+}
+
+.terms-agreement label {
+  font-size: 0.9rem;
+  color: var(--text-light);
+  line-height: 1.5;
+}
+
+.register-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  border: none;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-top: 1rem;
+}
+
+.register-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.register-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.login-link {
+  text-align: center;
+  color: var(--text-light);
+  margin-top: 1.5rem;
+}
+
+.login-link a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.login-link a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .register-container {
+    padding: 2rem;
+  }
+
+  .register-header h1 {
+    font-size: 1.8rem;
+  }
+}

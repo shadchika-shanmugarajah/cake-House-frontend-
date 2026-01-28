@@ -1,0 +1,395 @@
+/* =========================
+   PAGE LAYOUT
+========================= */
+
+.products-page {
+  background: #fafafa;
+  min-height: 100vh;
+  padding: 40px 0;
+}
+
+.products-container {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.products-header {
+  text-align: center;
+  color: #333 !important;
+  margin-bottom: 35px;
+}
+
+.products-header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  color: #2c2c2c;
+  margin-bottom: 10px;
+  margin-top: 60px;
+}
+
+.products-header p {
+  color: #666;
+  font-size: 16px;
+}
+
+/* =========================
+   CONTROLS (SEARCH / SORT)
+========================= */
+
+.products-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.filter-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #e4e4e4;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.search-box {
+  position: relative;
+}
+
+.search-input {
+  padding: 10px 36px 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  width: 240px;
+}
+
+.search-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+}
+
+.sort-select {
+  padding: 9px 14px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* =========================
+   LAYOUT
+========================= */
+
+.products-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 30px;
+}
+
+/* =========================
+   CATEGORIES
+========================= */
+
+.categories-sidebar {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  height: fit-content;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+
+.categories-sidebar h3 {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+.category-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.category-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #444;
+  transition: background 0.2s ease;
+}
+
+.category-item:hover {
+  background: #f5f5f5;
+}
+
+.category-item.active {
+  background: #ff6b8b;
+  color: white;
+}
+
+.category-count {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* =========================
+   PRODUCTS GRID
+========================= */
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 22px;
+}
+
+/* =========================
+   PRODUCT CARD
+========================= */
+
+.cake-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+.cake-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+}
+
+.badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 20px;
+  color: #fff;
+  z-index: 2;
+}
+
+.badge.trending {
+  background: linear-gradient(135deg, #ff6b8b, #ff8e53);
+}
+
+.badge.new {
+  background: #4caf50;
+}
+
+.badge.sale {
+  background: #f44336;
+}
+
+/* =========================
+   IMAGE
+========================= */
+
+.cake-image-container {
+  height: 180px;
+  overflow: hidden;
+}
+
+.cake-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0 !important;
+  transition: transform 0.3s ease;
+}
+
+.cake-card:hover .cake-image {
+  transform: scale(1.05);
+}
+
+/* =========================
+   INFO
+========================= */
+
+.cake-info {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.cake-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cake-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.cake-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #555;
+}
+
+.reviews {
+  color: #888;
+}
+
+.cake-price-section {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.cake-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ff6b8b;
+}
+
+.original-price {
+  text-decoration: line-through;
+  font-size: 14px;
+  color: #999;
+}
+
+.cake-description {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+/* =========================
+   ACTIONS
+========================= */
+
+.cake-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.view-details-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+  text-decoration: none;
+}
+
+.view-details-btn:hover {
+  color: #ff6b8b;
+}
+
+.quick-add-btn {
+  background: #ff6b8b;
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.quick-add-btn:hover {
+  background: #ff4f73;
+  transform: scale(1.05);
+}
+
+/* =========================
+   EMPTY STATE
+========================= */
+
+.no-results {
+  text-align: center;
+  padding: 60px 20px;
+  color: #777;
+}
+
+.no-results h3 {
+  margin-top: 12px;
+}
+
+/* =========================
+   PAGINATION
+========================= */
+
+.products-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 40px;
+}
+
+.page-btn {
+  border: 1px solid #ddd;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.page-btn.active {
+  background: #ff6b8b;
+  color: white;
+  border-color: #ff6b8b;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1024px) {
+  .products-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .categories-sidebar {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .products-header h1 {
+    font-size: 28px;
+  }
+
+  .search-input {
+    width: 180px;
+  }
+}

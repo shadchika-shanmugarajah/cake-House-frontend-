@@ -1,0 +1,272 @@
+/* src/components/client/Footer.css - PROFESSIONAL VERSION */
+
+.footer {
+  background: linear-gradient(135deg, #1a1a1a, #0a0a0a) !important;
+  color: #ffffff !important;
+  padding: 2.5rem 0 1rem !important;
+  margin-top: auto !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.footer::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 2px !important;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+}
+
+.footer-container {
+  max-width: 1000px !important;
+  margin: 0 auto !important;
+  padding: 0 20px !important;
+  position: relative !important;
+  z-index: 1 !important;
+  min-height: 300px !important;
+}
+
+.footer-grid {
+  display: grid !important;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr !important;
+  gap: 3rem !important;
+  padding-bottom: 2rem !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.footer-section {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.footer-section h3 {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  margin-bottom: 1.25rem !important;
+  color: white !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  position: relative !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.footer-section h3::after {
+  content: '' !important;
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 30px !important;
+  height: 2px !important;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+}
+
+.footer-logo {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-bottom: 1rem !important;
+}
+
+.footer-logo svg {
+  color: var(--primary-color) !important;
+  background: rgba(255, 107, 139, 0.1) !important;
+  padding: 8px !important;
+  border-radius: 10px !important;
+}
+
+.footer-logo .logo-text {
+  font-family: 'Dancing Script', cursive !important;
+  font-size: 1.8rem !important;
+  font-weight: 700 !important;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  letter-spacing: 0.5px !important;
+}
+
+.footer-description {
+  color: rgba(255, 255, 255, 0.7) !important;
+  margin-bottom: 1.5rem !important;
+  line-height: 1.6 !important;
+  font-size: 0.9rem !important;
+  font-weight: 300 !important;
+}
+
+.social-links {
+  display: flex !important;
+  gap: 0.75rem !important;
+  margin-top: 0.5rem !important;
+}
+
+.social-link {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  transition: all 0.3s ease !important;
+  text-decoration: none !important;
+}
+
+.social-link:hover {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
+  color: white !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 5px 15px rgba(255, 107, 139, 0.3) !important;
+}
+
+/* Vertical Lists */
+.footer-links {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.5rem !important;
+}
+
+.footer-links li {
+  margin: 0 !important;
+}
+
+.footer-links a {
+  color: rgba(255, 255, 255, 0.7) !important;
+  text-decoration: none !important;
+  font-size: 0.9rem !important;
+  transition: all 0.2s ease !important;
+  display: block !important;
+  padding: 0.4rem 0 !important;
+  position: relative !important;
+  padding-left: 0 !important;
+}
+
+.footer-links a:hover {
+  color: white !important;
+  transform: translateX(5px) !important;
+}
+
+.footer-links a::before {
+  content: '→' !important;
+  position: absolute !important;
+  left: -15px !important;
+  opacity: 0 !important;
+  transition: all 0.2s ease !important;
+  color: var(--primary-color) !important;
+}
+
+.footer-links a:hover::before {
+  opacity: 1 !important;
+  left: -10px !important;
+}
+
+
+
+/* Footer Bottom */
+.footer-bottom {
+  padding: 1.5rem 0 0.5rem !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 1rem !important;
+}
+
+.footer-bottom p {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 0.85rem !important;
+  margin: 0 !important;
+  font-weight: 300 !important;
+}
+
+.footer-bottom-links {
+  display: flex !important;
+  gap: 1.5rem !important;
+}
+
+.footer-bottom-links a {
+  color: rgba(255, 255, 255, 0.5) !important;
+  text-decoration: none !important;
+  font-size: 0.85rem !important;
+  transition: color 0.2s ease !important;
+  position: relative !important;
+}
+
+.footer-bottom-links a::after {
+  content: '' !important;
+  position: absolute !important;
+  bottom: -2px !important;
+  left: 0 !important;
+  width: 0 !important;
+  height: 1px !important;
+  background: var(--primary-color) !important;
+  transition: width 0.3s ease !important;
+}
+
+.footer-bottom-links a:hover {
+  color: white !important;
+}
+
+.footer-bottom-links a:hover::after {
+  width: 100% !important;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 2.5rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .footer {
+    padding: 2rem 0 1rem !important;
+  }
+  
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 2rem !important;
+  }
+  
+  .footer-container {
+    padding: 0 15px !important;
+  }
+  
+  .footer-bottom {
+    flex-direction: column !important;
+    text-align: center !important;
+    gap: 0.75rem !important;
+    padding: 1.25rem 0 0.5rem !important;
+  }
+  
+  .footer-bottom-links {
+    justify-content: center !important;
+    gap: 1.25rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer {
+    padding: 1.75rem 0 0.75rem !important;
+  }
+  
+  .footer-grid {
+    gap: 1.75rem !important;
+  }
+  
+  .footer-bottom-links {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+  
+  .social-links {
+    justify-content: center !important;
+  }
+}
