@@ -418,6 +418,57 @@
   transform: translateY(-2px);
 }
 
+/* Bulk Order Banner */
+.bulk-order-banner {
+  background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+  border: 2px solid #ffb74d;
+  border-radius: var(--radius);
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bulk-order-banner-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.bulk-order-banner-content svg {
+  color: #e65100;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.bulk-order-banner-content h3 {
+  font-size: 1.1rem;
+  color: #e65100;
+  margin-bottom: 0.25rem;
+}
+
+.bulk-order-banner-content p {
+  font-size: 0.9rem;
+  color: #bf360c;
+  line-height: 1.5;
+}
+
+.bulk-order-banner-icon {
+  color: #ffb74d;
+  flex-shrink: 0;
+}
+
+.bulk-note {
+  background: #fff3e0 !important;
+  border-left: 4px solid #ff9800;
+}
+
+.bulk-checkout-btn {
+  background: linear-gradient(135deg, #ff9800, #ff5722) !important;
+}
+
 @media (max-width: 992px) {
   .cart-layout {
     grid-template-columns: 1fr;

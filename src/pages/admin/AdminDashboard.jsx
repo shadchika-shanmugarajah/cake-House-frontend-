@@ -114,6 +114,7 @@ const AdminDashboard = () => {
       ]
     },
     { id: 'orders', label: 'Orders', icon: <ShoppingCart size={20} />, path: '/admin/orders' },
+    { id: 'bulk-orders', label: 'Bulk Orders', icon: <Package size={20} />, path: '/admin/bulk-orders' },
     { id: 'customers', label: 'Customers', icon: <Users size={20} />, path: '/admin/customers' },
     { id: 'inventory', label: 'Inventory', icon: <Package size={20} />, path: '/admin/inventory' },
     { id: 'loyalty', label: 'Loyalty Program', icon: <Award size={20} />, path: '/admin/loyalty' },

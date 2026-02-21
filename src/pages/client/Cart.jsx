@@ -1,9 +1,11 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Minus, Home, Store, Truck, Calendar, Clock } from 'lucide-react';
+import { Trash2, Plus, Minus, Home, Store, Truck, Calendar, Clock, AlertTriangle, Package } from 'lucide-react';
 import { CartContext } from '../../context/CartContext';
 import { toast } from 'react-toastify';
 import './Cart.css';
+
+const BULK_ORDER_THRESHOLD = 12;
 
 const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity, clearCart } = useContext(CartContext);
@@ -14,13 +16,15 @@ const Cart = () => {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const navigate = useNavigate();
 
-  // Calculate totals
+  const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const isBulkOrder = totalQuantity > BULK_ORDER_THRESHOLD;
+
   const calculateSubtotal = () => {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
   const calculateTax = () => {
-    return calculateSubtotal() * 0.08; // 8% tax
+    return calculateSubtotal() * 0.08;
   };
 
   const calculateShipping = () => {
@@ -47,10 +51,25 @@ const Cart = () => {
       return;
     }
 
-    // In real app, process checkout
-    toast.success('Order placed successfully!');
-    clearCart();
-    navigate('/');
+    const orderDetails = {
+      items: cartItems,
+      deliveryOption,
+      deliveryDate,
+      deliveryTime,
+      address,
+      specialInstructions,
+      subtotal: calculateSubtotal(),
+      tax: calculateTax(),
+      shipping: calculateShipping(),
+      total: calculateTotal(),
+      totalQuantity,
+    };
+
+    if (isBulkOrder) {
+      navigate('/bulk-order', { state: { orderDetails } });
+    } else {
+      navigate('/checkout', { state: { orderDetails } });
+    }
   };
 
   const getTomorrowDate = () => {
@@ -83,8 +102,21 @@ const Cart = () => {
           <p>Review your order before checkout</p>
         </div>
 
+        {isBulkOrder && (
+          <div className="bulk-order-banner">
+            <div className="bulk-order-banner-content">
+              <AlertTriangle size={24} />
+              <div>
+                <h3>Bulk Order Detected ({totalQuantity} pieces)</h3>
+                <p>Orders with more than {BULK_ORDER_THRESHOLD} pieces are considered bulk orders. 
+                   You'll need to select a preferred date and time. Your order will be reviewed by our team for availability confirmation.</p>
+              </div>
+            </div>
+            <Package size={32} className="bulk-order-banner-icon" />
+          </div>
+        )}
+
         <div className="cart-layout">
-          {/* Left Column - Cart Items */}
           <div className="cart-left">
             <div className="cart-items-section">
               <h2>Your Items ({cartItems.length})</h2>
@@ -125,7 +157,6 @@ const Cart = () => {
               ))}
             </div>
 
-            {/* Delivery Options */}
             <div className="delivery-section">
               <h2>Delivery Options</h2>
               <div className="delivery-options">
@@ -166,7 +197,6 @@ const Cart = () => {
                 </label>
               </div>
 
-              {/* Delivery Address */}
               {deliveryOption === 'delivery' && (
                 <div className="address-section">
                   <h3>Delivery Address</h3>
@@ -183,7 +213,6 @@ const Cart = () => {
                 </div>
               )}
 
-              {/* Date & Time Selection */}
               <div className="datetime-section">
                 <h3>Select Date & Time</h3>
                 <div className="datetime-inputs">
@@ -215,7 +244,6 @@ const Cart = () => {
                 </div>
               </div>
 
-              {/* Special Instructions */}
               <div className="instructions-section">
                 <h3>Special Instructions</h3>
                 <textarea
@@ -228,13 +256,12 @@ const Cart = () => {
             </div>
           </div>
 
-          {/* Right Column - Order Summary */}
           <div className="cart-summary">
             <h2>Order Summary</h2>
             
             <div className="summary-details">
               <div className="summary-row">
-                <span>Subtotal ({cartItems.reduce((total, item) => total + item.quantity, 0)} items)</span>
+                <span>Subtotal ({totalQuantity} items)</span>
                 <span>${calculateSubtotal().toFixed(2)}</span>
               </div>
               
@@ -254,14 +281,22 @@ const Cart = () => {
               </div>
             </div>
 
-            <div className="order-note">
-              <p>🕒 Orders require 24 hours advance notice for preparation</p>
-              <p>📞 We'll contact you to confirm your order</p>
-            </div>
+            {isBulkOrder ? (
+              <div className="order-note bulk-note">
+                <p>📦 This is a <strong>bulk order</strong> ({totalQuantity} pieces)</p>
+                <p>📋 Your order will be sent for admin approval</p>
+                <p>📞 We'll contact you once availability is confirmed</p>
+              </div>
+            ) : (
+              <div className="order-note">
+                <p>🕒 Orders require 24 hours advance notice for preparation</p>
+                <p>📞 We'll contact you to confirm your order</p>
+              </div>
+            )}
 
             <div className="checkout-actions">
-              <button onClick={handleCheckout} className="checkout-btn">
-                Proceed to Checkout
+              <button onClick={handleCheckout} className={`checkout-btn ${isBulkOrder ? 'bulk-checkout-btn' : ''}`}>
+                {isBulkOrder ? 'Request Bulk Order' : 'Proceed to Checkout'}
               </button>
               
               <button onClick={clearCart} className="clear-cart-btn">
