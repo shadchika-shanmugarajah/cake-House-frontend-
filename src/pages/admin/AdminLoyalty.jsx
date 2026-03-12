@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AdminBackHeader from '../../components/admin/AdminBackHeader';
 import { 
   Award, Users, TrendingUp, Gift, Crown, Star,
   Target, Percent, Calendar, Clock, CheckCircle,
@@ -376,6 +377,7 @@ const AdminLoyalty = () => {
 
   return (
     <div className="loyalty-page">
+      <AdminBackHeader />
       {/* Page Header */}
       <div className="loyalty-header">
         <div className="loyalty-header-left">

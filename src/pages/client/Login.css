@@ -41,6 +41,33 @@
   font-size: 1rem;
 }
 
+.admin-credentials-box {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 100%);
+  border-radius: 12px;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.admin-credentials-box strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #6366f1;
+}
+
+.admin-credentials-box p {
+  margin: 0.25rem 0;
+  color: #374151;
+}
+
+.admin-credentials-box code {
+  background: rgba(255,255,255,0.8);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
@@ -179,7 +206,18 @@
   text-decoration: underline;
 }
 
+.back-to-auth {
+  display: block;
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-light);
+  text-decoration: none;
+}
 
+.back-to-auth:hover {
+  color: var(--primary-color);
+}
 
 @media (max-width: 768px) {
   .login-container {

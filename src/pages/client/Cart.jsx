@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, Home, Store, Truck, Calendar, Clock, AlertTriangle, Package } from 'lucide-react';
 import { CartContext } from '../../context/CartContext';
+import { AuthContext } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 import './Cart.css';
 
@@ -9,6 +10,7 @@ const BULK_ORDER_THRESHOLD = 12;
 
 const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity, clearCart } = useContext(CartContext);
+  const { user } = useContext(AuthContext);
   const [deliveryOption, setDeliveryOption] = useState('delivery');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
@@ -38,6 +40,12 @@ const Cart = () => {
   const handleCheckout = () => {
     if (cartItems.length === 0) {
       toast.error('Your cart is empty');
+      return;
+    }
+
+    if (!user) {
+      toast.info('Please login or register to proceed to payment');
+      navigate('/auth', { state: { from: '/cart' } });
       return;
     }
 

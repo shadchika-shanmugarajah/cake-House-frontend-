@@ -442,6 +442,37 @@
   gap: 12px;
 }
 
+.modal-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-order-item {
+  padding: 12px;
+  background: rgba(0,0,0,0.03);
+  border-radius: 8px;
+  border-left: 3px solid var(--primary);
+}
+
+.modal-order-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.bulk-tag {
+  font-size: 0.7rem;
+  background: #f59e0b;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
 .modal-info-item {
   display: flex;
   align-items: center;

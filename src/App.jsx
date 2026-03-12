@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 // Client Pages
 import Home from './pages/client/Home';
+import Landing from './pages/client/Landing';
 import Login from './pages/client/Login';
 import Register from './pages/client/Register';
 import Products from './pages/client/Products';
@@ -26,7 +27,6 @@ import AdminBulkOrders from './pages/admin/AdminBulkOrders';
 import AdminCustomers from './pages/admin/AdminCustomers';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminInventory from './pages/admin/AdminInventory';
-import AdminLoyalty from './pages/admin/AdminLoyalty';
 
 // Protected Routes
 import AdminProtectedRoute from './components/AdminProtectedRoute';
@@ -43,6 +43,7 @@ function AppContent() {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
+        <Route path="/auth" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/products" element={<Products />} />
@@ -97,12 +98,6 @@ function AppContent() {
           </AdminProtectedRoute>
         } />
         
-        <Route path="/admin/loyalty" element={
-          <AdminProtectedRoute>
-            <AdminLoyalty />
-          </AdminProtectedRoute>
-        } />
-
         {/* Redirect to home for unknown routes */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

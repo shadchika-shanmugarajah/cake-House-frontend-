@@ -1,5 +1,6 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext';
 import { ArrowLeft, Calendar, Clock, Package, AlertCircle, FileText, User, Mail, Phone, MessageSquare } from 'lucide-react';
 import { CartContext } from '../../context/CartContext';
 import { useOrders } from '../../context/OrderContext';
@@ -9,13 +10,28 @@ import './BulkOrder.css';
 const BulkOrder = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
   const { clearCart } = useContext(CartContext);
   const { addBulkOrder } = useOrders();
   const orderDetails = location.state?.orderDetails;
 
-  const [customerName, setCustomerName] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  useEffect(() => {
+    if (!user && orderDetails) {
+      navigate('/auth', { state: { from: '/cart' } });
+    }
+  }, [user, orderDetails, navigate]);
+
+  useEffect(() => {
+    if (user?.email) {
+      setCustomerName(user.name || '');
+      setCustomerEmail(user.email || '');
+      setCustomerPhone(user.phone || '');
+    }
+  }, []);
+
+  const [customerName, setCustomerName] = useState(user?.name || '');
+  const [customerEmail, setCustomerEmail] = useState(user?.email || '');
+  const [customerPhone, setCustomerPhone] = useState(user?.phone || '');
   const [preferredDate, setPreferredDate] = useState('');
   const [preferredTime, setPreferredTime] = useState('');
   const [alternateDate, setAlternateDate] = useState('');
@@ -37,6 +53,8 @@ const BulkOrder = () => {
       </div>
     );
   }
+
+  if (!user) return null;
 
   const getMinDate = () => {
     const minDate = new Date();

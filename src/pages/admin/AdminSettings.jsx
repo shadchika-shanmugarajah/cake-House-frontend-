@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AdminBackHeader from '../../components/admin/AdminBackHeader';
 import { 
   Settings, Save, Bell, CreditCard, Shield, Users,
   Globe, Palette, Moon, Sun, Eye, EyeOff, Database,
@@ -75,6 +76,7 @@ const AdminSettings = () => {
 
   return (
     <div className="settings-page">
+      <AdminBackHeader />
       {/* Page Header */}
       <div className="settings-header">
         <div className="settings-header-left">

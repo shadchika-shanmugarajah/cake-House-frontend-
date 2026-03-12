@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Phone, Eye, EyeOff, UserPlus } from 'lucide-react';
+import React, { useState, useContext } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext';
+import { Mail, Lock, User, Phone, MapPin, Eye, EyeOff, UserPlus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import './Register.css';
 
@@ -9,6 +10,7 @@ const Register = () => {
     name: '',
     email: '',
     phone: '',
+    address: '',
     password: '',
     confirmPassword: '',
   });
@@ -17,6 +19,9 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   
   const navigate = useNavigate();
+  const location = useLocation();
+  const { loadUserFromStorage } = useContext(AuthContext);
+  const from = (typeof location.state?.from === 'string' ? location.state.from : location.state?.from?.pathname) || '/';
 
   const handleChange = (e) => {
     setFormData({
@@ -41,11 +46,41 @@ const Register = () => {
     setLoading(true);
 
     try {
-      // Simulate API call
+      // Store registered user (with password for login) + current session
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      const registered = JSON.parse(localStorage.getItem('cakeHouseRegisteredUsers') || '[]');
+      const existing = registered.find(u => u.email.toLowerCase() === formData.email.toLowerCase());
+      if (existing) {
+        const updated = registered.map(u => 
+          u.email.toLowerCase() === formData.email.toLowerCase()
+            ? { ...u, name: formData.name, phone: formData.phone, address: formData.address, password: formData.password }
+            : u
+        );
+        localStorage.setItem('cakeHouseRegisteredUsers', JSON.stringify(updated));
+      } else {
+        registered.push({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          phone: formData.phone,
+          address: formData.address,
+        });
+        localStorage.setItem('cakeHouseRegisteredUsers', JSON.stringify(registered));
+      }
+
+      const userData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        isAuthenticated: true,
+        token: `demo-user-token-${Date.now()}`,
+      };
+      localStorage.setItem('userAuth', JSON.stringify(userData));
+      loadUserFromStorage?.();
       toast.success('Registration successful!');
-      navigate('/login');
+      navigate(from, { replace: true });
     } catch (error) {
       toast.error('Registration failed. Please try again.');
     } finally {
@@ -109,6 +144,19 @@ const Register = () => {
 
           <div className="form-group">
             <div className="input-with-icon">
+              <MapPin size={20} />
+              <input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="Address"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <div className="input-with-icon">
               <Lock size={20} />
               <input
                 type={showPassword ? "text" : "password"}
@@ -165,6 +213,10 @@ const Register = () => {
             Already have an account?{' '}
             <Link to="/login">Sign in here</Link>
           </p>
+
+          <Link to="/auth" className="back-to-auth">
+            ← Back to role selection
+          </Link>
         </form>
       </div>
     </div>

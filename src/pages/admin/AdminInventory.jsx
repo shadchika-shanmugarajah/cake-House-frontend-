@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AdminBackHeader from '../../components/admin/AdminBackHeader';
 import { 
   Package, Search, Filter, Download, Plus, Edit, 
   Trash2, AlertCircle, CheckCircle, XCircle, 
@@ -223,6 +224,7 @@ const AdminInventory = () => {
 
   return (
     <div className="inventory-page">
+      <AdminBackHeader />
       {/* Page Header */}
       <div className="inventory-header">
         <div className="inventory-header-left">

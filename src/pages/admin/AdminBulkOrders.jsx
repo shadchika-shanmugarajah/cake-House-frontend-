@@ -4,6 +4,7 @@ import {
   User, Phone, Mail, MapPin, Search, Filter, Cake, AlertCircle
 } from 'lucide-react';
 import { useOrders } from '../../context/OrderContext';
+import AdminBackHeader from '../../components/admin/AdminBackHeader';
 import { toast } from 'react-toastify';
 import './AdminBulkOrders.css';
 
@@ -85,6 +86,7 @@ const AdminBulkOrders = () => {
 
   return (
     <div className="bulk-admin-page">
+      <AdminBackHeader />
       <div className="bulk-admin-header">
         <div className="bulk-admin-header-left">
           <div className="bulk-admin-header-icon">

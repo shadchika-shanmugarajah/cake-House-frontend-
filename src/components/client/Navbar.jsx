@@ -8,7 +8,8 @@ import './Navbar.css';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, logout } = useContext(AuthContext);
+  const { user, admin, logout } = useContext(AuthContext);
+  const isLoggedIn = !!user || !!admin;
   const { cartItems } = useContext(CartContext);
   const navigate = useNavigate();
 
@@ -52,15 +53,14 @@ const Navbar = () => {
             )}
           </Link>
 
-          {user ? (
+          {isLoggedIn ? (
             <div className="user-dropdown">
               <button className="user-btn" title="My Account">
                 <User size={24} />
               </button>
               <div className="dropdown-menu">
                 <Link to="/profile" className="dropdown-item">My Profile</Link>
-                {/* Admin Dashboard link only in dropdown menu */}
-                {user.isAdmin && (
+                {admin && (
                   <Link to="/admin/dashboard" className="dropdown-item admin-item">
                     Admin Dashboard
                   </Link>
@@ -69,7 +69,7 @@ const Navbar = () => {
               </div>
             </div>
           ) : (
-            <Link to="/login" className="user-btn" title="Login">
+            <Link to="/auth" className="user-btn" title="Login">
               <User size={24} />
             </Link>
           )}

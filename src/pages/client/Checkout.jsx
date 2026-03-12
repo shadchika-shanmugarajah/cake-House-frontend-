@@ -1,5 +1,6 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { ShieldCheck, Lock, CreditCard, ArrowLeft, CheckCircle, Cake } from 'lucide-react';
@@ -8,7 +9,10 @@ import { useOrders } from '../../context/OrderContext';
 import { toast } from 'react-toastify';
 import './Checkout.css';
 
-const stripePromise = loadStripe('pk_test_51OpXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX');
+const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = stripePublishableKey && !stripePublishableKey.includes('XXXX')
+  ? loadStripe(stripePublishableKey)
+  : null;
 
 const CARD_ELEMENT_OPTIONS = {
   hidePostalCode: true,
@@ -27,9 +31,13 @@ const CARD_ELEMENT_OPTIONS = {
   },
 };
 
-const CheckoutForm = ({ orderDetails }) => {
+const CheckoutFormWithStripe = ({ orderDetails }) => {
   const stripe = useStripe();
   const elements = useElements();
+  return <CheckoutForm orderDetails={orderDetails} isDemoMode={false} stripe={stripe} elements={elements} />;
+};
+
+const CheckoutForm = ({ orderDetails, isDemoMode, stripe, elements }) => {
   const navigate = useNavigate();
   const { clearCart } = useContext(CartContext);
   const { addOrder } = useOrders();
@@ -40,6 +48,26 @@ const CheckoutForm = ({ orderDetails }) => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
+  const completePayment = (paymentMethod = 'Demo') => {
+    const order = addOrder({
+      ...orderDetails,
+      customer: {
+        name: customerName,
+        email: customerEmail,
+        phone: customerPhone,
+      },
+      paymentMethodId: isDemoMode ? 'demo_pm_123' : 'pm_stripe',
+      paymentMethod,
+    });
+    setSucceeded(true);
+    setProcessing(false);
+    clearCart();
+    toast.success('Payment successful! Order placed.');
+    setTimeout(() => {
+      navigate('/order-success', { state: { order } });
+    }, 2000);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -48,13 +76,17 @@ const CheckoutForm = ({ orderDetails }) => {
       return;
     }
 
-    if (!stripe || !elements) return;
-
     setProcessing(true);
     setCardError('');
 
-    const cardElement = elements.getElement(CardElement);
+    if (isDemoMode) {
+      setTimeout(() => completePayment('Demo'), 1500);
+      return;
+    }
 
+    if (!stripe || !elements) return;
+
+    const cardElement = elements.getElement(CardElement);
     const { error, paymentMethod } = await stripe.createPaymentMethod({
       type: 'card',
       card: cardElement,
@@ -71,29 +103,7 @@ const CheckoutForm = ({ orderDetails }) => {
       return;
     }
 
-    // In production, send paymentMethod.id to your backend to create a PaymentIntent
-    // For demo, we simulate a successful payment
-    setTimeout(() => {
-      const order = addOrder({
-        ...orderDetails,
-        customer: {
-          name: customerName,
-          email: customerEmail,
-          phone: customerPhone,
-        },
-        paymentMethodId: paymentMethod.id,
-        paymentMethod: 'Stripe',
-      });
-
-      setSucceeded(true);
-      setProcessing(false);
-      clearCart();
-      toast.success('Payment successful! Order placed.');
-
-      setTimeout(() => {
-        navigate('/order-success', { state: { order } });
-      }, 2000);
-    }, 1500);
+    setTimeout(() => completePayment('Stripe'), 1500);
   };
 
   if (succeeded) {
@@ -146,25 +156,40 @@ const CheckoutForm = ({ orderDetails }) => {
         </div>
       </div>
 
-      <div className="checkout-form-section">
-        <h3>
-          <CreditCard size={20} />
-          Payment Information
-        </h3>
-        <div className="stripe-card-wrapper">
-          <CardElement options={CARD_ELEMENT_OPTIONS} />
+      {!isDemoMode && (
+        <div className="checkout-form-section">
+          <h3>
+            <CreditCard size={20} />
+            Payment Information
+          </h3>
+          <div className="stripe-card-wrapper">
+            <CardElement options={CARD_ELEMENT_OPTIONS} />
+          </div>
+          {cardError && <div className="card-error">{cardError}</div>}
+          <div className="secure-badge">
+            <Lock size={14} />
+            <span>Secured by Stripe - Your card details are encrypted</span>
+          </div>
         </div>
-        {cardError && <div className="card-error">{cardError}</div>}
-        <div className="secure-badge">
-          <Lock size={14} />
-          <span>Secured by Stripe - Your card details are encrypted</span>
+      )}
+
+      {isDemoMode && (
+        <div className="checkout-form-section demo-payment-section">
+          <h3>
+            <CreditCard size={20} />
+            Demo Payment
+          </h3>
+          <div className="demo-payment-info">
+            <p>No Stripe API key configured. Use demo mode to complete a sample payment.</p>
+            <p>Add <code>VITE_STRIPE_PUBLISHABLE_KEY</code> to .env for real payments.</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <button
         type="submit"
         className="pay-btn"
-        disabled={!stripe || processing}
+        disabled={(!isDemoMode && !stripe) || processing}
       >
         {processing ? (
           <span className="btn-loading">
@@ -182,7 +207,14 @@ const CheckoutForm = ({ orderDetails }) => {
 const Checkout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
   const orderDetails = location.state?.orderDetails;
+
+  useEffect(() => {
+    if (!user && orderDetails) {
+      navigate('/auth', { state: { from: '/cart' } });
+    }
+  }, [user, orderDetails, navigate]);
 
   if (!orderDetails) {
     return (
@@ -196,6 +228,10 @@ const Checkout = () => {
         </div>
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (
@@ -214,9 +250,13 @@ const Checkout = () => {
 
         <div className="checkout-layout">
           <div className="checkout-left">
-            <Elements stripe={stripePromise}>
-              <CheckoutForm orderDetails={orderDetails} />
-            </Elements>
+            {stripePromise ? (
+              <Elements stripe={stripePromise}>
+                <CheckoutFormWithStripe orderDetails={orderDetails} />
+              </Elements>
+            ) : (
+              <CheckoutForm orderDetails={orderDetails} isDemoMode={true} stripe={null} elements={null} />
+            )}
           </div>
 
           <div className="checkout-right">
@@ -265,13 +305,24 @@ const Checkout = () => {
               {orderDetails.address && <p><strong>Address:</strong> {orderDetails.address}</p>}
             </div>
 
-            <div className="checkout-test-info">
-              <Cake size={16} />
-              <div>
-                <strong>Test Mode</strong>
-                <p>Use card number <code>4242 4242 4242 4242</code> with any future date and CVC.</p>
+            {stripePromise && (
+              <div className="checkout-test-info">
+                <Cake size={16} />
+                <div>
+                  <strong>Test Mode</strong>
+                  <p>Use card number <code>4242 4242 4242 4242</code> with any future date and CVC.</p>
+                </div>
               </div>
-            </div>
+            )}
+            {!stripePromise && (
+              <div className="checkout-test-info demo-mode">
+                <Cake size={16} />
+                <div>
+                  <strong>Demo Mode</strong>
+                  <p>Sample payment - no card required. Add Stripe key to .env for real payments.</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

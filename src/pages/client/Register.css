@@ -107,6 +107,19 @@
   text-decoration: underline;
 }
 
+.back-to-auth {
+  display: block;
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-light);
+  text-decoration: none;
+}
+
+.back-to-auth:hover {
+  color: var(--primary-color);
+}
+
 @media (max-width: 768px) {
   .register-container {
     padding: 2rem;

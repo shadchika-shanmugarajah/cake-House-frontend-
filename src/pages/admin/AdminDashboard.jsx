@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useOrders } from '../../context/OrderContext';
 import { 
   LogOut, Home, Cake, ShoppingCart, Users, Package, 
-  Award, Bell, Search, Menu, Plus, Eye, 
+  Bell, Search, Menu, Plus, Eye, 
   BarChart, Calendar, DollarSign, Camera, Upload, 
   Tag, Info, BookOpen, Hash, AlertCircle, CheckCircle, 
   Image, Filter, Download, ChevronDown, Settings, Shield,
@@ -14,6 +15,8 @@ import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const { admin, logoutAdmin } = useAuth();
+  const { newOrdersCount, bulkOrders } = useOrders();
+  const pendingBulkCount = bulkOrders.filter(o => o.status === 'pending_approval').length;
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -113,11 +116,10 @@ const AdminDashboard = () => {
         { label: 'Custom Cakes', path: '/admin/cakes/custom' }
       ]
     },
-    { id: 'orders', label: 'Orders', icon: <ShoppingCart size={20} />, path: '/admin/orders' },
-    { id: 'bulk-orders', label: 'Bulk Orders', icon: <Package size={20} />, path: '/admin/bulk-orders' },
+    { id: 'orders', label: 'Orders', icon: <ShoppingCart size={20} />, path: '/admin/orders', badge: newOrdersCount },
+    { id: 'bulk-orders', label: 'Bulk Orders', icon: <Package size={20} />, path: '/admin/bulk-orders', badge: pendingBulkCount },
     { id: 'customers', label: 'Customers', icon: <Users size={20} />, path: '/admin/customers' },
     { id: 'inventory', label: 'Inventory', icon: <Package size={20} />, path: '/admin/inventory' },
-    { id: 'loyalty', label: 'Loyalty Program', icon: <Award size={20} />, path: '/admin/loyalty' },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} />, path: '/admin/settings' },
   ];
 
@@ -196,6 +198,9 @@ const AdminDashboard = () => {
                 >
                   <span className="menu-icon">{item.icon}</span>
                   <span className="menu-text">{item.label}</span>
+                  {item.badge > 0 && (
+                    <span className="menu-badge">{item.badge}</span>
+                  )}
                 </Link>
               )}
             </div>

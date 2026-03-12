@@ -11,6 +11,13 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [admin, setAdmin] = useState(null);
 
+  const loadUserFromStorage = () => {
+    const userData = localStorage.getItem('userAuth');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  };
+
   // Check for existing auth on mount
   useEffect(() => {
     const userData = localStorage.getItem('userAuth');
@@ -56,7 +63,7 @@ export const AuthProvider = ({ children }) => {
           setAdmin(adminData);
           resolve({ type: 'admin', data: adminData });
         } 
-        // Check if it's a regular user
+        // Check demo users
         else {
           const foundUser = demoUsers.find(
             user => user.email === email && user.password === password
@@ -74,8 +81,29 @@ export const AuthProvider = ({ children }) => {
             setUser(userData);
             resolve({ type: 'user', data: userData });
           } 
+          // Check registered users (from sign-up)
           else {
-            reject(new Error('Invalid credentials'));
+            const registered = JSON.parse(localStorage.getItem('cakeHouseRegisteredUsers') || '[]');
+            const foundRegistered = registered.find(
+              u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+            );
+            
+            if (foundRegistered) {
+              const userData = {
+                email: foundRegistered.email,
+                name: foundRegistered.name,
+                phone: foundRegistered.phone,
+                address: foundRegistered.address,
+                isAuthenticated: true,
+                token: `demo-user-token-${Date.now()}`
+              };
+              
+              localStorage.setItem('userAuth', JSON.stringify(userData));
+              setUser(userData);
+              resolve({ type: 'user', data: userData });
+            } else {
+              reject(new Error('Invalid credentials'));
+            }
           }
         }
       }, 500);
@@ -98,6 +126,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logoutUser,
     logoutAdmin,
+    loadUserFromStorage,
     isUserAuthenticated: !!user,
     isAdminAuthenticated: !!admin,
     logout: () => {

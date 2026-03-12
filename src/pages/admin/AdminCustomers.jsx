@@ -1,86 +1,130 @@
 // src/pages/admin/AdminCustomers.jsx (CORRECTED)
-import React, { useState } from 'react';
-import { Users, Mail, Phone, Calendar, MapPin, Eye, ShoppingBag, DollarSign, Search, Filter, Plus } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Users, Mail, Phone, Calendar, MapPin, Eye, ShoppingBag, DollarSign, LogIn } from 'lucide-react';
+import { useOrders } from '../../context/OrderContext';
+import AdminBackHeader from '../../components/admin/AdminBackHeader';
 import { toast } from 'react-toastify';
 import './AdminCustomers.css'; // Import separate CSS
 
 const AdminCustomers = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { orders, bulkOrders } = useOrders();
 
-  const customers = [
-    { 
-      id: 1, 
-      name: 'John Doe', 
-      email: 'john@example.com', 
-      phone: '077 2346 890', 
-      address: '123 Main St',
-      joinDate: 'Jan 15, 2024', 
-      orders: 12, 
-      totalSpent: 'Rs 5,280',
-      lastOrder: '2024-12-15',
-      status: 'active'
-    },
-    { 
-      id: 2, 
-      name: 'Jane Smith', 
-      email: 'jane@example.com', 
-      phone: '077 2346 891', 
-      address: '456 Oak Ave',
-      joinDate: 'Feb 20, 2024', 
-      orders: 8, 
-      totalSpent: 'Rs 3,450',
-      lastOrder: '2024-12-10',
-      status: 'active'
-    },
-    { 
-      id: 3, 
-      name: 'Bob Johnson', 
-      email: 'bob@example.com', 
-      phone: '077 2346 892', 
-      address: '789 Pine Rd',
-      joinDate: 'Mar 10, 2024', 
-      orders: 15, 
-      totalSpent: 'Rs 7,890',
-      lastOrder: '2024-12-12',
-      status: 'active'
-    },
-    { 
-      id: 4, 
-      name: 'Alice Brown', 
-      email: 'alice@example.com', 
-      phone: '077 2346 893', 
-      address: '321 Elm St',
-      joinDate: 'Apr 5, 2024', 
-      orders: 5, 
-      totalSpent: 'Rs 2,150',
-      lastOrder: '2024-11-28',
-      status: 'active'
-    },
-    { 
-      id: 5, 
-      name: 'Charlie Wilson', 
-      email: 'charlie@example.com', 
-      phone: '077 2346 894', 
-      address: '654 Maple Dr',
-      joinDate: 'May 18, 2024', 
-      orders: 20, 
-      totalSpent: 'Rs 9,850',
-      lastOrder: '2024-12-14',
-      status: 'vip'
-    },
-    { 
-      id: 6, 
-      name: 'Emma Davis', 
-      email: 'emma@example.com', 
-      phone: '077 2346 894', 
-      address: '987 Cedar Ln',
-      joinDate: 'Jun 22, 2024', 
-      orders: 7, 
-      totalSpent: 'Rs 3,120',
-      lastOrder: '2024-12-08',
-      status: 'active'
-    },
+  const { customers, stats } = useMemo(() => {
+    const customerMap = new Map();
+    const addFromOrders = (orderList, isBulk = false) => {
+      orderList.forEach(o => {
+        const email = o.customer?.email || o.customerEmail;
+        if (!email) return;
+        const key = email.toLowerCase();
+        if (!customerMap.has(key)) {
+          customerMap.set(key, {
+            id: key,
+            name: o.customer?.name || 'Guest',
+            email,
+            phone: o.customer?.phone || o.customerPhone || '—',
+            address: o.address || o.deliveryAddress || '—',
+            joinDate: o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—',
+            orders: 0,
+            totalSpent: 0,
+            lastOrder: o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—',
+            status: 'active',
+            orderIds: [],
+            orderDetails: [],
+          });
+        }
+        const c = customerMap.get(key);
+        c.orders += 1;
+        c.totalSpent += (o.total || 0);
+        if (o.createdAt && (!c.lastOrder || new Date(o.createdAt) > new Date(c.lastOrder))) {
+          c.lastOrder = new Date(o.createdAt).toLocaleDateString();
+        }
+        c.orderIds.push(o.id);
+        c.orderDetails.push({ id: o.id, total: o.total, items: o.items, date: o.createdAt, isBulk });
+      });
+    };
+    addFromOrders(orders);
+    addFromOrders(bulkOrders, true);
+    const registeredUsers = JSON.parse(localStorage.getItem('cakeHouseRegisteredUsers') || '[]');
+    registeredUsers.forEach(u => {
+      const key = (u.email || '').toLowerCase();
+      if (!key) return;
+      if (!customerMap.has(key)) {
+        customerMap.set(key, {
+          id: key,
+          name: u.name || u.email?.split('@')[0] || 'Customer',
+          email: u.email,
+          phone: u.phone || '—',
+          address: u.address || '—',
+          joinDate: '—',
+          orders: 0,
+          totalSpent: 0,
+          lastOrder: '—',
+          status: 'active',
+          orderIds: [],
+          orderDetails: [],
+          loginEmail: u.email,
+        });
+      } else {
+        const c = customerMap.get(key);
+        c.name = c.name || u.name || u.email?.split('@')[0];
+        c.phone = c.phone === '—' ? (u.phone || '—') : c.phone;
+        c.address = c.address === '—' ? (u.address || '—') : c.address;
+      }
+    });
+    const userAuth = localStorage.getItem('userAuth');
+    if (userAuth) {
+      try {
+        const u = JSON.parse(userAuth);
+        const key = (u.email || '').toLowerCase();
+        if (key && !customerMap.has(key)) {
+          customerMap.set(key, {
+            id: key,
+            name: u.name || u.email?.split('@')[0] || 'Customer',
+            email: u.email,
+            phone: u.phone || '—',
+            address: u.address || '—',
+            joinDate: '—',
+            orders: 0,
+            totalSpent: 0,
+            lastOrder: '—',
+            status: 'active',
+            orderIds: [],
+            orderDetails: [],
+            loginEmail: u.email,
+          });
+        } else if (key) {
+          const c = customerMap.get(key);
+          c.name = c.name || u.name || u.email?.split('@')[0];
+          c.phone = c.phone === '—' ? (u.phone || '—') : c.phone;
+          c.address = c.address === '—' ? (u.address || '—') : c.address;
+        }
+      } catch (e) { /* skip */ }
+    }
+    const custList = Array.from(customerMap.values()).map(c => ({
+      ...c,
+      totalSpent: `$${c.totalSpent.toFixed(2)}`,
+    }));
+    const totalRevenue = custList.reduce((s, c) => s + parseFloat(String(c.totalSpent).replace(/[^0-9.]/g, '')) || 0, 0);
+    return {
+      customers: custList,
+      stats: {
+        total: custList.length,
+        newThisMonth: custList.filter(c => {
+          const d = c.joinDate;
+          if (d === '—') return false;
+          const m = new Date().getMonth();
+          const y = new Date().getFullYear();
+          return new Date(d).getMonth() === m && new Date(d).getFullYear() === y;
+        }).length,
+        revenue: `$${totalRevenue.toFixed(2)}`,
+      },
+    };
+  }, [orders, bulkOrders]);
+
+  const displayCustomers = customers.length > 0 ? customers : [
+    { id: '1', name: 'Sample Customer', email: 'customer@example.com', phone: '—', address: '—', joinDate: '—', orders: 0, totalSpent: '$0.00', lastOrder: '—', status: 'active', orderDetails: [] },
   ];
 
   const handleViewCustomer = (customer) => {
@@ -98,7 +142,8 @@ const AdminCustomers = () => {
   };
 
   return (
-    <div className="customers-page"> {/* Changed from admin-page to customers-page */}
+    <div className="customers-page">
+      <AdminBackHeader />
       {/* Page Header */}
       <div className="customers-header">
         <div className="header-left">
@@ -117,7 +162,7 @@ const AdminCustomers = () => {
           <div className="stat-icon-wrapper">
             <Users size={24} />
           </div>
-          <div className="stat-value">6</div>
+          <div className="stat-value">{stats.total}</div>
           <div className="stat-label">Total Customers</div>
         </div>
         
@@ -125,7 +170,7 @@ const AdminCustomers = () => {
           <div className="stat-icon-wrapper">
             <Calendar size={24} />
           </div>
-          <div className="stat-value">28</div>
+          <div className="stat-value">{stats.newThisMonth}</div>
           <div className="stat-label">New This Month</div>
         </div>
         
@@ -133,7 +178,7 @@ const AdminCustomers = () => {
           <div className="stat-icon-wrapper">
             <DollarSign size={24} />
           </div>
-          <div className="stat-value">Rs 89,450</div>
+          <div className="stat-value">{stats.revenue}</div>
           <div className="stat-label">Total Revenue</div>
         </div>
         
@@ -159,7 +204,7 @@ const AdminCustomers = () => {
             </tr>
           </thead>
           <tbody>
-            {customers.map((customer) => (
+            {displayCustomers.map((customer) => (
               <tr key={customer.id}>
                 <td>
                   <div className="customer-cell">
@@ -228,15 +273,18 @@ const AdminCustomers = () => {
               </div>
             </div>
 
-            {/* Customer Details */}
+            {/* Login & Contact Information */}
             <div className="modal-section">
-              <h3 className="modal-section-title">Contact Information</h3>
+              <h3 className="modal-section-title">
+                <LogIn size={18} className="modal-info-icon" />
+                Login & Contact Information
+              </h3>
               
               <div className="modal-info-grid">
                 <div className="modal-info-item">
                   <Mail size={18} className="modal-info-icon" />
                   <div>
-                    <div className="modal-info-label">Email</div>
+                    <div className="modal-info-label">Email (Login)</div>
                     <div className="modal-info-value">{selectedCustomer.email}</div>
                   </div>
                 </div>
@@ -260,7 +308,7 @@ const AdminCustomers = () => {
                 <div className="modal-info-item">
                   <Calendar size={18} className="modal-info-icon" />
                   <div>
-                    <div className="modal-info-label">Joined</div>
+                    <div className="modal-info-label">First Order / Joined</div>
                     <div className="modal-info-value">{selectedCustomer.joinDate}</div>
                   </div>
                 </div>
@@ -282,7 +330,32 @@ const AdminCustomers = () => {
               </div>
             </div>
 
-            {/* Last Order Info */}
+            {/* Order History */}
+            {selectedCustomer.orderDetails && selectedCustomer.orderDetails.length > 0 && (
+              <div className="modal-section">
+                <h3 className="modal-section-title">
+                  <ShoppingBag size={18} className="modal-info-icon" />
+                  Order History
+                </h3>
+                <div className="modal-order-list">
+                  {selectedCustomer.orderDetails.map((ord, idx) => (
+                    <div key={idx} className="modal-order-item">
+                      <div><strong>{ord.id}</strong> {ord.isBulk && <span className="bulk-tag">Bulk</span>}</div>
+                      <div>${ord.total?.toFixed(2)} • {new Date(ord.date).toLocaleDateString()}</div>
+                      {ord.items?.length > 0 && (
+                        <div className="modal-order-items">
+                          {ord.items.slice(0, 3).map((i, iidx) => (
+                            <span key={iidx}>{i.name} x{i.quantity}</span>
+                          ))}
+                          {ord.items.length > 3 && <span>+{ord.items.length - 3} more</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="modal-section">
               <div className="modal-info-label">Last Order Date</div>
               <div className="modal-info-value" style={{fontSize: '16px', fontWeight: '500'}}>

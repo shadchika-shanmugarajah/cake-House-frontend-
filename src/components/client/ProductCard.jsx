@@ -65,8 +65,9 @@ const ProductCard = ({ product }) => {
         
         <div className="product-footer">
           <div className="price-section">
-            {/* Change from product.price.toFixed(2) to just product.price */}
-            <span className="product-price">{product.price}</span>
+            <span className="product-price">
+              {product.priceDisplay ?? (typeof product.price === 'number' ? `$${product.price.toFixed(2)}` : product.price)}
+            </span>
           </div>
           
           <button onClick={handleAddToCart} className="add-to-cart-btn">

@@ -1,5 +1,7 @@
 // src/pages/admin/AdminOrders.jsx
 import React, { useState } from 'react';
+import { useOrders } from '../../context/OrderContext';
+import AdminBackHeader from '../../components/admin/AdminBackHeader';
 import { 
   Eye, ShoppingCart, Filter, Search, Download, 
   Cake, User, MapPin, Phone, Mail, Calendar, 
@@ -11,8 +13,13 @@ import './AdminOrders.css'; // Import separate CSS
 const AdminOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { orders: contextOrders, markOrdersAsViewed } = useOrders();
 
-  const orders = [
+  React.useEffect(() => {
+    markOrdersAsViewed?.();
+  }, [markOrdersAsViewed]);
+
+  const mockOrders = [
     { 
       id: 'ORD-7842', 
       customer: 'John Doe', 
@@ -98,6 +105,31 @@ const AdminOrders = () => {
     },
   ];
 
+  const formatOrderFromContext = (o) => ({
+    id: o.id,
+    customer: o.customer?.name || 'Guest',
+    date: o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—',
+    amount: `$${(o.total || 0).toFixed(2)}`,
+    status: o.status || 'completed',
+    isNew: o.isNew,
+    items: (o.items || []).map(i => ({
+      name: i.name,
+      quantity: i.quantity,
+      price: `$${((i.price || 0) * (i.quantity || 1)).toFixed(2)}`,
+    })),
+    customerPhone: o.customer?.phone || '—',
+    customerEmail: o.customer?.email || '—',
+    deliveryAddress: o.address || '—',
+    deliveryType: o.deliveryOption === 'delivery' ? 'Home Delivery' : 'Pickup',
+    paymentMethod: o.paymentMethod || 'Stripe',
+    specialInstructions: o.specialInstructions || '',
+  });
+
+  const orders = [
+    ...contextOrders.map(formatOrderFromContext),
+    ...mockOrders,
+  ];
+
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
     setIsModalOpen(true);
@@ -124,16 +156,21 @@ const AdminOrders = () => {
     }
   };
 
+  const totalRevenue = orders.reduce((sum, o) => {
+    const amt = parseFloat(String(o.amount).replace(/[^0-9.]/g, '')) || 0;
+    return sum + amt;
+  }, 0);
   const stats = {
-    total: 42,
-    pending: 3,
-    processing: 8,
-    completed: 28,
-    revenue: 'Rs 89,450'
+    total: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    processing: orders.filter(o => o.status === 'processing').length,
+    completed: orders.filter(o => o.status === 'completed' || o.status === 'delivered').length,
+    revenue: `$${totalRevenue.toFixed(2)}`
   };
 
   return (
     <div className="orders-page">
+      <AdminBackHeader />
       {/* Page Header */}
       <div className="orders-header">
         <div className="orders-header-left">
@@ -210,8 +247,11 @@ const AdminOrders = () => {
             {orders.map((order) => (
               <tr key={order.id}>
                 <td>
-                  <div style={{ fontWeight: '600', color: 'var(--primary)' }}>
-                    {order.id}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: '600', color: 'var(--primary)' }}>{order.id}</span>
+                    {order.isNew && (
+                      <span className="order-new-badge">NEW</span>
+                    )}
                   </div>
                 </td>
                 <td>

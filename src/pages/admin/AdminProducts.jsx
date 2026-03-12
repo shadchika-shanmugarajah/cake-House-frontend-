@@ -1,6 +1,7 @@
 // src/pages/admin/AdminProducts.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AdminBackHeader from '../../components/admin/AdminBackHeader';
 import { Plus, Edit, Trash2, Eye, Filter, Search, Download, Cake } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -21,6 +22,7 @@ const AdminProducts = () => {
 
   return (
     <div className="admin-page">
+      <AdminBackHeader />
       <div className="page-header">
         <div className="header-left">
           <Cake size={24} />

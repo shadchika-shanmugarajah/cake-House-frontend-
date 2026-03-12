@@ -18,7 +18,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/';
+  const from = (typeof location.state?.from === 'string' ? location.state.from : location.state?.from?.pathname) || '/';
 
   const handleChange = (e) => {
     setFormData({
@@ -57,6 +57,11 @@ const Login = () => {
           </Link>
           <h1>Welcome Back</h1>
           <p>Sign in to your account</p>
+          <div className="admin-credentials-box">
+            <strong>Admin Login Credentials</strong>
+            <p>Email: <code>admin@example.com</code></p>
+            <p>Password: <code>admin123</code></p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -109,6 +114,10 @@ const Login = () => {
             Don't have an account?{' '}
             <Link to="/register">Sign up here</Link>
           </p>
+
+          <Link to="/auth" className="back-to-auth">
+            ← Back to role selection
+          </Link>
 
         
           <div className="quick-demo-section">

@@ -201,6 +201,17 @@
   margin-left: auto;
 }
 
+/* New Order Badge */
+.order-new-badge {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
 /* Order Status Badges */
 .order-status-badge {
   padding: 6px 12px;

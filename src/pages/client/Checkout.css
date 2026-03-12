@@ -394,6 +394,35 @@
   font-weight: 500;
 }
 
+.demo-payment-section .demo-payment-info {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  font-size: 0.95rem;
+  color: #0369a1;
+}
+
+.demo-payment-info p {
+  margin: 0 0 0.5rem;
+}
+
+.demo-payment-info p:last-child {
+  margin-bottom: 0;
+}
+
+.demo-payment-info code {
+  background: rgba(0,0,0,0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.checkout-test-info.demo-mode {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
 @media (max-width: 992px) {
   .checkout-layout {
     grid-template-columns: 1fr;
