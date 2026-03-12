@@ -1,102 +1,40 @@
 // src/pages/client/Products.jsx
-import React, { useState } from 'react';
-import { Search, Filter } from 'lucide-react';
-import ProductCard from '../../components/client/ProductCard'; // Import ProductCard
+import React, { useState, useMemo } from 'react';
+import { Search } from 'lucide-react';
+import ProductCard from '../../components/client/ProductCard';
+import { useProducts } from '../../context/ProductContext';
 import './Products.css';
+
+const ITEMS_PER_PAGE = 8;
 
 const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('featured');
-  
-  const categories = [
-    { name: 'All', count: 8 },
-    { name: 'Birthday', count: 3 },
-    { name: 'Wedding', count: 1 },
-    { name: 'Custom', count: 2 },
-    { name: 'Seasonal', count: 1 }
-  ];
+  const [currentPage, setCurrentPage] = useState(1);
+  const { products } = useProducts();
 
-  const cakes = [
-    { 
-      id: 1, 
-      name: 'Chocolate Fantasy', 
-      description: 'Rich chocolate cake with fudge frosting and chocolate shavings',
-      price: 35,
-      image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop', 
-      category: 'Birthday',
-      rating: 4.8,
-      reviewCount: 124,
-      isTrending: true
-    },
-    { 
-      id: 2, 
-      name: 'Red Velvet Delight', 
-      description: 'Classic red velvet with cream cheese frosting',
-      price: 40,
-      image: 'https://images.unsplash.com/photo-1614707267537-b85aaf00c4b7?w=400&h=300&fit=crop', 
-      category: 'Wedding',
-      rating: 4.9,
-      reviewCount: 89,
-      isTrending: true
-    },
-    { 
-      id: 3, 
-      name: 'Vanilla Dream', 
-      description: 'Pure vanilla bean cake with buttercream frosting',
-      price: 32,
-      image: 'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=400&h=300&fit=crop', 
-      category: 'Birthday',
-      rating: 4.7,
-      reviewCount: 76,
-      isTrending: false
-    },
-    
-    { 
-      id: 5, 
-      name: 'Lemon Drizzle Cake', 
-      description: 'Zesty lemon cake with lemon glaze and drizzle',
-      price: 29,
-      image: 'https://images.unsplash.com/photo-1576618148400-f54bed99fcfd?w=400&h=300&fit=crop', 
-      category: 'Custom',
-      rating: 4.5,
-      reviewCount: 42,
-      isTrending: false
-    },
-    { 
-      id: 6, 
-      name: 'Strawberry Shortcake', 
-      description: 'Fresh strawberries with whipped cream and sponge cake',
-      price: 34,
-      image: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400&h=300&fit=crop', 
-      category: 'Seasonal',
-      rating: 4.8,
-      reviewCount: 67,
-      isTrending: true
-    },
-    { 
-      id: 7, 
-      name: 'Black Forest', 
-      description: 'Cherry and chocolate cake with whipped cream',
-      price: 42,
-      image: 'https://images.unsplash.com/photo-1542826438-bd32f43d626f?w=400&h=300&fit=crop', 
-      category: 'Anniversary',
-      rating: 4.9,
-      reviewCount: 92,
-      isTrending: true
-    },
-    { 
-      id: 8, 
-      name: 'Coffee Walnut', 
-      description: 'Coffee infused cake with walnut pieces and buttercream',
-      price: 31,
-      image: 'https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?w=400&h=300&fit=crop', 
-      category: 'Custom',
-      rating: 4.4,
-      reviewCount: 38,
-      isTrending: false
-    }
-  ];
+  const cakes = useMemo(() => products.map(p => ({
+    ...p,
+    priceDisplay: `Rs ${p.price}`,
+  })), [products]);
+
+  const categoryCounts = useMemo(() => {
+    const counts = { All: cakes.length };
+    cakes.forEach(c => {
+      counts[c.category] = (counts[c.category] || 0) + 1;
+    });
+    return counts;
+  }, [cakes]);
+
+  const categories = [
+    { name: 'All', count: categoryCounts.All || 0 },
+    { name: 'Birthday', count: categoryCounts.Birthday || 0 },
+    { name: 'Wedding', count: categoryCounts.Wedding || 0 },
+    { name: 'Custom', count: categoryCounts.Custom || 0 },
+    { name: 'Seasonal', count: categoryCounts.Seasonal || 0 },
+    { name: 'Cupcakes', count: categoryCounts.Cupcakes || 0 },
+  ].filter(c => c.count > 0 || c.name === 'All');
 
   // Filter cakes based on selected category and search query
   const filteredCakes = cakes.filter(cake => {
@@ -107,20 +45,30 @@ const Products = () => {
   });
 
   // Sort cakes based on sortBy
-  const sortedCakes = [...filteredCakes].sort((a, b) => {
+  const sortedCakes = useMemo(() => [...filteredCakes].sort((a, b) => {
     switch(sortBy) {
       case 'price-low':
         return a.price - b.price;
       case 'price-high':
         return b.price - a.price;
       case 'rating':
-        return b.rating - a.rating;
+        return (b.rating || 0) - (a.rating || 0);
       case 'trending':
-        return b.isTrending - a.isTrending;
+        return (b.isTrending ? 1 : 0) - (a.isTrending ? 1 : 0);
       default:
         return 0;
     }
-  });
+  }), [filteredCakes, sortBy]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(sortedCakes.length / ITEMS_PER_PAGE));
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedCakes = sortedCakes.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, searchQuery, sortBy]);
 
   return (
     <div className="products-page">
@@ -168,7 +116,7 @@ const Products = () => {
 
           <div>
             <div className="products-grid">
-              {sortedCakes.map(cake => (
+              {paginatedCakes.map(cake => (
                 <ProductCard key={cake.id} product={cake} />
               ))}
             </div>
@@ -182,13 +130,33 @@ const Products = () => {
           </div>
         </div>
 
-        <div className="products-pagination">
-          <button className="page-btn" disabled>←</button>
-          <button className="page-btn active">1</button>
-          <button className="page-btn">2</button>
-          <button className="page-btn">3</button>
-          <button className="page-btn">→</button>
-        </div>
+        {sortedCakes.length > 0 && (
+          <div className="products-pagination">
+            <button
+              className="page-btn"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            >
+              ←
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                className={`page-btn ${currentPage === page ? 'active' : ''}`}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              className="page-btn"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            >
+              →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

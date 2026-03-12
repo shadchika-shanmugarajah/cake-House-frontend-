@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { OrderProvider } from './context/OrderContext';
+import { ProductProvider } from './context/ProductContext';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -112,9 +113,11 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <OrderProvider>
-          <Router>
+          <ProductProvider>
+            <Router>
             <AppContent />
-          </Router>
+            </Router>
+          </ProductProvider>
         </OrderProvider>
       </CartProvider>
     </AuthProvider>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../context/OrderContext';
 import { 
@@ -10,12 +10,16 @@ import {
   User, Mail, Phone, Calendar as CalendarIcon, Key
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useProducts } from '../../context/ProductContext';
 import { toast } from 'react-toastify';
 import './AdminDashboard.css';
+
+const CATEGORY_MAP = { birthday: 'Birthday', wedding: 'Wedding', anniversary: 'Anniversary', custom: 'Custom', cupcakes: 'Cupcakes', desserts: 'Seasonal' };
 
 const AdminDashboard = () => {
   const { admin, logoutAdmin } = useAuth();
   const { newOrdersCount, bulkOrders } = useOrders();
+  const { products, addProduct } = useProducts();
   const pendingBulkCount = bulkOrders.filter(o => o.status === 'pending_approval').length;
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -24,6 +28,7 @@ const AdminDashboard = () => {
   const [openSubmenu, setOpenSubmenu] = useState(null);
   const [showAdminDetails, setShowAdminDetails] = useState(false);
   const [isAddCakeOpen, setIsAddCakeOpen] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Sample Data
   const ordersData = [
@@ -34,14 +39,12 @@ const AdminDashboard = () => {
     { id: 'ORD-7838', customer: 'eee', date: 'Jan 12, 2026', amount: 'Rs 180', status: 'cancelled' }
   ];
 
-  const topCakesData = [
-    { name: 'Red Velvet Dream', category: 'Birthday Cakes', sales: 42, price: 'Rs 459' },
-    { name: 'Chocolate Heaven', category: 'Custom Cakes', sales: 38, price: 'Rs 599' },
-    { name: 'Vanilla Berry Bliss', category: 'Wedding Cakes', sales: 35, price: 'Rs 489' },
-    { name: 'Lemon Drizzle', category: 'Cupcakes', sales: 28, price: 'Rs 299' },
-    { name: 'Carrot Cake Special', category: 'Birthday Cakes', sales: 25, price: 'Rs 429' },
-    { name: 'Strawberry Delight', category: 'Custom Cakes', sales: 22, price: 'Rs 559' }
-  ];
+  const topCakesData = products.slice(0, 6).map(p => ({
+    name: p.name,
+    category: p.category,
+    sales: p.reviewCount || 0,
+    price: `Rs ${p.price}`
+  }));
 
   const [newCake, setNewCake] = useState({
     name: '',
@@ -57,7 +60,8 @@ const AdminDashboard = () => {
     isAvailable: true,
     isFeatured: false,
     tags: '',
-    images: []
+    images: [],
+    stock: ''
   });
 
   const statsData = {
@@ -100,6 +104,57 @@ const AdminDashboard = () => {
 
   const handleAdminAvatarClick = () => {
     setShowAdminDetails(!showAdminDetails);
+  };
+
+  const MAX_IMAGES = 5;
+  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB per image
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    processFiles(files);
+    e.target.value = '';
+  };
+
+  const processFiles = (files) => {
+    const remaining = MAX_IMAGES - (newCake.images?.length || 0);
+    const toProcess = files.slice(0, remaining);
+    toProcess.forEach((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`"${file.name}" is too large. Max 2MB per image.`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setNewCake((prev) => ({
+          ...prev,
+          images: [...(prev.images || []), ev.target.result].slice(0, MAX_IMAGES),
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
+    if (files.length > remaining) {
+      toast.info(`Only ${MAX_IMAGES} images allowed. Added ${remaining}.`);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const files = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'));
+    if (files.length) processFiles(files);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const removeImage = (index) => {
+    setNewCake((prev) => ({
+      ...prev,
+      images: (prev.images || []).filter((_, i) => i !== index),
+    }));
   };
 
   // Menu items
@@ -485,29 +540,56 @@ const AdminDashboard = () => {
                     Images
                   </h3>
                   <div className="image-upload-area">
-                    <div className="upload-box">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileSelect}
+                      style={{ display: 'none' }}
+                    />
+                    <div
+                      className="upload-box"
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <Upload size={32} />
                       <p>Drag & drop images here</p>
                       <span>or</span>
-                      <button className="upload-btn">
+                      <button
+                        type="button"
+                        className="upload-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                      >
                         <Camera size={16} />
                         Browse Files
                       </button>
-                      <small>Recommended: 800×800px, Max 5 images</small>
+                      <small>Recommended: 800×800px, Max 5 images (2MB each)</small>
                     </div>
                     
                     <div className="image-preview-grid">
-                      <div className="image-preview">
-                        <div className="image-placeholder">
-                          <Cake size={24} />
+                      {(newCake.images || []).map((img, idx) => (
+                        <div key={idx} className="image-preview">
+                          <img src={img} alt={`Preview ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
+                          <button type="button" className="remove-image" onClick={(e) => { e.stopPropagation(); removeImage(idx); }}>×</button>
                         </div>
-                        <button className="remove-image">×</button>
-                      </div>
-                      <div className="image-preview">
-                        <div className="image-placeholder">
-                          <Plus size={24} />
+                      ))}
+                      {(newCake.images?.length || 0) < MAX_IMAGES && (
+                        <div
+                          className="image-preview"
+                          onClick={() => fileInputRef.current?.click()}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="image-placeholder">
+                            <Plus size={24} />
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -547,6 +629,8 @@ const AdminDashboard = () => {
                         type="number"
                         placeholder="e.g., 10"
                         min="0"
+                        value={newCake.stock}
+                        onChange={(e) => setNewCake({...newCake, stock: e.target.value})}
                       />
                       <small>Set to 0 for made-to-order</small>
                     </div>
@@ -564,9 +648,27 @@ const AdminDashboard = () => {
                 <button 
                   className="btn btn-primary"
                   onClick={() => {
-                    toast.success('Cake added successfully!');
+                    if (!newCake.name?.trim()) {
+                      toast.error('Please enter cake name');
+                      return;
+                    }
+                    if (!newCake.price) {
+                      toast.error('Please enter price');
+                      return;
+                    }
+                    const category = CATEGORY_MAP[newCake.category] || newCake.category || 'Custom';
+                    const primaryImage = newCake.images?.[0] || null;
+                    addProduct({
+                      name: newCake.name.trim(),
+                      description: newCake.description || '',
+                      price: Number(newCake.price) || 0,
+                      category,
+                      stock: Number(newCake.stock) || 0,
+                      isTrending: newCake.isFeatured,
+                      image: primaryImage,
+                    });
+                    toast.success('Cake added successfully! It will appear on the client store.');
                     setIsAddCakeOpen(false);
-                    // Reset form
                     setNewCake({
                       name: '',
                       description: '',
@@ -581,8 +683,10 @@ const AdminDashboard = () => {
                       isAvailable: true,
                       isFeatured: false,
                       tags: '',
-                      images: []
+                      images: [],
+                      stock: ''
                     });
+                    if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
                 >
                   <CheckCircle size={18} />

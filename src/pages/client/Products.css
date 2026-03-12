@@ -370,6 +370,11 @@
   border-color: #ff6b8b;
 }
 
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* =========================
    RESPONSIVE
 ========================= */

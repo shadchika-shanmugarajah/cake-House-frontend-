@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Plus, Minus, ArrowLeft } from 'lucide-react';
 import { CartContext } from '../../context/CartContext';
+import { useProducts } from '../../context/ProductContext';
 import { toast } from 'react-toastify';
 import './ProductDetail.css';
 
@@ -9,39 +10,38 @@ const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useContext(CartContext);
-  
+  const { getProductById } = useProducts();
   const [quantity, setQuantity] = useState(1);
-  
-  // Mock product data - in real app, fetch from API
-  const cake = {
-    id: id,
-    name: 'Chocolate Fantasy',
-    price: 35.99,
-    description: 'A rich and decadent chocolate cake layered with creamy chocolate ganache.',
-    longDescription: 'Our signature chocolate cake made with premium cocoa and Belgian chocolate. Each layer is generously filled with smooth chocolate ganache and finished with a rich chocolate buttercream frosting. Perfect for chocolate lovers!',
-    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800&h=600&fit=crop',
-    category: 'Chocolate',
-    rating: 4.8,
-    reviews: 124,
-    ingredients: ['Premium Cocoa', 'Belgian Chocolate', 'Fresh Cream', 'Organic Eggs', 'Vanilla Extract'],
-    servingSize: '8-10 people',
-    weight: '2 lbs',
-    preparationTime: '24 hours advance order',
-    isTrending: true
-  };
+
+  const cake = getProductById(id);
 
   const handleAddToCart = () => {
-    const productToAdd = {
-      ...cake,
-      quantity: quantity
-    };
-    
-    addToCart(productToAdd);
+    if (!cake) return;
+    addToCart(cake, quantity);
     toast.success(`${cake.name} added to cart!`);
     
     // Optionally navigate to cart
     navigate('/cart');
   };
+
+  if (!cake) {
+    return (
+      <div className="product-detail-page">
+        <div className="product-detail-container">
+          <button onClick={() => navigate(-1)} className="back-btn">
+            <ArrowLeft size={20} />
+            Back to Products
+          </button>
+          <p style={{ padding: '2rem', textAlign: 'center' }}>Product not found.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const longDescription = cake.description || 'Delicious handcrafted cake made with premium ingredients.';
+  const servingSize = '8-10 people';
+  const weight = '2 lbs';
+  const preparationTime = '24 hours advance order';
 
   const handleQuantityIncrease = () => {
     setQuantity(prev => prev + 1);
@@ -74,30 +74,30 @@ const ProductDetail = () => {
             
             <div className="product-rating">
               <div className="stars">
-                {'★'.repeat(Math.floor(cake.rating))}
-                {'☆'.repeat(5 - Math.floor(cake.rating))}
+                {'★'.repeat(Math.floor(cake.rating || 4.5))}
+                {'☆'.repeat(5 - Math.floor(cake.rating || 4.5))}
               </div>
-              <span className="review-count">({cake.reviews} reviews)</span>
+              <span className="review-count">({cake.reviewCount || 0} reviews)</span>
             </div>
             
             <div className="product-price">
-              ${cake.price.toFixed(2)}
+              Rs {cake.price}
             </div>
             
-            <p className="product-description">{cake.longDescription}</p>
+            <p className="product-description">{longDescription}</p>
             
             <div className="product-specs">
               <div className="spec-item">
                 <span className="spec-label">Serving Size:</span>
-                <span className="spec-value">{cake.servingSize}</span>
+                <span className="spec-value">{servingSize}</span>
               </div>
               <div className="spec-item">
                 <span className="spec-label">Weight:</span>
-                <span className="spec-value">{cake.weight}</span>
+                <span className="spec-value">{weight}</span>
               </div>
               <div className="spec-item">
                 <span className="spec-label">Preparation:</span>
-                <span className="spec-value">{cake.preparationTime}</span>
+                <span className="spec-value">{preparationTime}</span>
               </div>
             </div>
             
