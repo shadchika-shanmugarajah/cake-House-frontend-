@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useProducts } from '../../context/ProductContext';
 import { toast } from 'react-toastify';
+import { exportToCSV } from '../../utils/exportUtils';
 import './AdminDashboard.css';
 
 const CATEGORY_MAP = { birthday: 'Birthday', wedding: 'Wedding', anniversary: 'Anniversary', custom: 'Custom', cupcakes: 'Cupcakes', desserts: 'Seasonal' };
@@ -796,7 +797,20 @@ const AdminDashboard = () => {
                   <Filter size={18} />
                   <span>Filter</span>
                 </button>
-                <button className="btn-icon">
+                <button 
+                  className="btn-icon"
+                  onClick={() => {
+                    const cols = [
+                      { key: 'id', label: 'Order ID' },
+                      { key: 'customer', label: 'Customer' },
+                      { key: 'date', label: 'Date' },
+                      { key: 'amount', label: 'Amount' },
+                      { key: 'status', label: 'Status' },
+                    ];
+                    exportToCSV(ordersData, 'orders', cols);
+                    toast.success('Orders exported');
+                  }}
+                >
                   <Download size={18} />
                   <span>Export</span>
                 </button>

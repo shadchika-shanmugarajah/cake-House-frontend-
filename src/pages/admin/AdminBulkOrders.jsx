@@ -33,16 +33,24 @@ const AdminBulkOrders = () => {
     setSelectedOrder(null);
   };
 
-  const handleConfirm = (orderId) => {
-    confirmBulkOrder(orderId);
-    toast.success(`Bulk order ${orderId} confirmed! Customer will be notified.`);
-    closeModal();
+  const handleConfirm = async (orderId) => {
+    try {
+      await confirmBulkOrder(orderId);
+      toast.success(`Bulk order ${orderId} confirmed! Customer will be notified.`);
+      closeModal();
+    } catch (err) {
+      toast.error(err.message || 'Failed to confirm order');
+    }
   };
 
-  const handleCancel = (orderId) => {
-    cancelBulkOrder(orderId);
-    toast.info(`Bulk order ${orderId} has been cancelled.`);
-    closeModal();
+  const handleCancel = async (orderId) => {
+    try {
+      await cancelBulkOrder(orderId);
+      toast.info(`Bulk order ${orderId} has been cancelled.`);
+      closeModal();
+    } catch (err) {
+      toast.error(err.message || 'Failed to cancel order');
+    }
   };
 
   const getStatusIcon = (status) => {

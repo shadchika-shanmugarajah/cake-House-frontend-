@@ -62,7 +62,7 @@ const BulkOrder = () => {
     return minDate.toISOString().split('T')[0];
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
@@ -77,8 +77,8 @@ const BulkOrder = () => {
 
     setSubmitting(true);
 
-    setTimeout(() => {
-      const bulkOrder = addBulkOrder({
+    try {
+      const bulkOrder = await addBulkOrder({
         ...orderDetails,
         customer: {
           name: customerName,
@@ -105,7 +105,10 @@ const BulkOrder = () => {
           }
         });
       }, 2000);
-    }, 1500);
+    } catch (err) {
+      setSubmitting(false);
+      toast.error(err?.message || 'Failed to submit bulk order');
+    }
   };
 
   if (submitted) {

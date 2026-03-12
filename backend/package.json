@@ -1,0 +1,21 @@
+{
+  "name": "cake-house-backend",
+  "version": "1.0.0",
+  "description": "Cake House API - MongoDB backend",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "seed": "node scripts/seed.js",
+    "seed:inventory": "node scripts/seedInventory.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "mongoose": "^8.8.0",
+    "nodemailer": "^6.10.1",
+    "twilio": "^5.12.2"
+  }
+}

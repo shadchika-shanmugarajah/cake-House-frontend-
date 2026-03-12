@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { ordersApi, bulkOrdersApi, notificationsApi } from '../api/api';
 
 const OrderContext = createContext();
 
@@ -8,169 +9,136 @@ export const OrderProvider = ({ children }) => {
   const [orders, setOrders] = useState([]);
   const [bulkOrders, setBulkOrders] = useState([]);
 
+  const fetchOrders = async () => {
+    try {
+      const data = await ordersApi.getAll();
+      setOrders(data || []);
+    } catch (err) {
+      console.error('Failed to fetch orders:', err);
+      setOrders([]);
+    }
+  };
+
+  const fetchBulkOrders = async (status) => {
+    try {
+      const data = await bulkOrdersApi.getAll(status);
+      setBulkOrders(data || []);
+    } catch (err) {
+      console.error('Failed to fetch bulk orders:', err);
+      setBulkOrders([]);
+    }
+  };
+
   useEffect(() => {
-    const savedOrders = localStorage.getItem('cakeHouseOrders');
-    const savedBulkOrders = localStorage.getItem('cakeHouseBulkOrders');
-    if (savedOrders) {
-      try { setOrders(JSON.parse(savedOrders)); } catch (e) { /* skip */ }
-    }
-    let parsedBulk = [];
-    if (savedBulkOrders) {
-      try { parsedBulk = JSON.parse(savedBulkOrders); } catch (e) { /* skip */ }
-    }
-    if (parsedBulk.length > 0) {
-      setBulkOrders(parsedBulk);
-    } else {
-      const sampleBulkOrder = {
-        id: 'BULK-SAMPLE1',
-        status: 'pending_approval',
-        paymentStatus: 'pending',
-        isBulk: true,
-        createdAt: new Date().toISOString(),
-        customer: { name: 'Sample Customer', email: 'customer@example.com', phone: '+1 234 567 890' },
-        items: [{ id: 1, name: 'Chocolate Truffle Cake', quantity: 15, price: 35.99, image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=100' }],
-        totalQuantity: 15,
-        subtotal: 539.85,
-        tax: 43.19,
-        shipping: 5,
-        total: 588.04,
-        preferredDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        preferredTime: '14:00',
-        deliveryOption: 'delivery',
-        address: '123 Sample Street, City',
-      };
-      setBulkOrders([sampleBulkOrder]);
-    }
+    fetchOrders();
+    fetchBulkOrders();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('cakeHouseOrders', JSON.stringify(orders));
-  }, [orders]);
-
-  useEffect(() => {
-    localStorage.setItem('cakeHouseBulkOrders', JSON.stringify(bulkOrders));
-  }, [bulkOrders]);
-
-  const addOrder = (orderData) => {
-    const order = {
-      id: `ORD-${Date.now().toString(36).toUpperCase()}`,
-      ...orderData,
-      status: 'completed',
-      paymentStatus: 'paid',
-      createdAt: new Date().toISOString(),
-      isNew: true,
-    };
-    setOrders(prev => [order, ...prev]);
-    return order;
+  const addOrder = async (orderData) => {
+    try {
+      const order = await ordersApi.create(orderData);
+      setOrders((prev) => [order, ...prev]);
+      return order;
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const markOrdersAsViewed = () => {
-    setOrders(prev => prev.map(o => ({ ...o, isNew: false })));
+  const markOrdersAsViewed = async () => {
+    try {
+      await ordersApi.markViewed();
+      setOrders((prev) => prev.map((o) => ({ ...o, unread: false, isNew: false })));
+    } catch (err) {
+      console.error('Failed to mark orders viewed:', err);
+    }
   };
 
-  const newOrdersCount = orders.filter(o => o.isNew).length;
+  const newOrdersCount = orders.filter((o) => o.unread ?? o.isNew).length;
 
-  const addBulkOrder = (orderData) => {
-    const order = {
-      id: `BULK-${Date.now().toString(36).toUpperCase()}`,
-      ...orderData,
-      status: 'pending_approval',
-      paymentStatus: 'pending',
-      isBulk: true,
-      createdAt: new Date().toISOString(),
-    };
-    setBulkOrders(prev => [order, ...prev]);
-    return order;
+  const addBulkOrder = async (orderData) => {
+    try {
+      const order = await bulkOrdersApi.create(orderData);
+      setBulkOrders((prev) => [order, ...prev]);
+      return order;
+    } catch (err) {
+      throw err;
+    }
   };
 
   const updateBulkOrderStatus = (orderId, newStatus) => {
-    setBulkOrders(prev =>
-      prev.map(order =>
-        order.id === orderId
-          ? { ...order, status: newStatus, updatedAt: new Date().toISOString() }
-          : order
-      )
+    setBulkOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, updatedAt: new Date().toISOString() } : o))
     );
   };
 
-  const addCustomerNotification = (customerEmail, orderId, message, type = 'bulk_confirmed') => {
-    const notifications = JSON.parse(localStorage.getItem('cakeHouseNotifications') || '[]');
-    notifications.push({
-      id: `notif-${Date.now()}`,
-      customerEmail,
-      orderId,
-      message,
-      type,
-      read: false,
-      createdAt: new Date().toISOString(),
-    });
-    localStorage.setItem('cakeHouseNotifications', JSON.stringify(notifications));
-  };
-
-  const confirmBulkOrder = (orderId) => {
-    const order = bulkOrders.find(o => o.id === orderId);
-    if (order?.customer?.email) {
-      addCustomerNotification(
-        order.customer.email,
-        orderId,
-        `Your bulk order ${orderId} has been confirmed! We'll contact you for payment.`,
-        'bulk_confirmed'
-      );
+  const confirmBulkOrder = async (orderId) => {
+    try {
+      await bulkOrdersApi.confirm(orderId);
+      updateBulkOrderStatus(orderId, 'confirmed');
+    } catch (err) {
+      throw err;
     }
-    updateBulkOrderStatus(orderId, 'confirmed');
   };
 
-  const cancelBulkOrder = (orderId) => {
-    const order = bulkOrders.find(o => o.id === orderId);
-    if (order?.customer?.email) {
-      addCustomerNotification(
-        order.customer.email,
-        orderId,
-        `Your bulk order ${orderId} has been cancelled. Please contact us if you have questions.`,
-        'bulk_cancelled'
-      );
+  const cancelBulkOrder = async (orderId) => {
+    try {
+      await bulkOrdersApi.cancel(orderId);
+      updateBulkOrderStatus(orderId, 'cancelled');
+    } catch (err) {
+      throw err;
     }
-    updateBulkOrderStatus(orderId, 'cancelled');
   };
 
-  const getCustomerNotifications = (email) => {
-    const notifications = JSON.parse(localStorage.getItem('cakeHouseNotifications') || '[]');
-    return notifications.filter(n => n.customerEmail === email).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const getCustomerNotifications = async (email) => {
+    try {
+      const data = await notificationsApi.getByEmail(email);
+      return (data || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } catch (err) {
+      return [];
+    }
   };
 
-  const markNotificationRead = (notificationId) => {
-    const notifications = JSON.parse(localStorage.getItem('cakeHouseNotifications') || '[]');
-    const updated = notifications.map(n => n.id === notificationId ? { ...n, read: true } : n);
-    localStorage.setItem('cakeHouseNotifications', JSON.stringify(updated));
+  const markNotificationRead = async (notificationId) => {
+    try {
+      await notificationsApi.markRead(notificationId);
+    } catch (err) {
+      console.error('Failed to mark notification read:', err);
+    }
   };
 
-  const markAllNotificationsRead = (email) => {
-    const notifications = JSON.parse(localStorage.getItem('cakeHouseNotifications') || '[]');
-    const updated = notifications.map(n => n.customerEmail === email ? { ...n, read: true } : n);
-    localStorage.setItem('cakeHouseNotifications', JSON.stringify(updated));
+  const markAllNotificationsRead = async (email) => {
+    try {
+      await notificationsApi.markAllRead(email);
+    } catch (err) {
+      console.error('Failed to mark all read:', err);
+    }
   };
 
   const getBulkOrdersByStatus = (status) => {
     if (!status) return bulkOrders;
-    return bulkOrders.filter(order => order.status === status);
+    return bulkOrders.filter((o) => o.status === status);
   };
 
   return (
-    <OrderContext.Provider value={{
-      orders,
-      bulkOrders,
-      newOrdersCount,
-      addOrder,
-      addBulkOrder,
-      markOrdersAsViewed,
-      confirmBulkOrder,
-      cancelBulkOrder,
-      updateBulkOrderStatus,
-      getBulkOrdersByStatus,
-      getCustomerNotifications,
-      markNotificationRead,
-      markAllNotificationsRead,
-    }}>
+    <OrderContext.Provider
+      value={{
+        orders,
+        bulkOrders,
+        newOrdersCount,
+        addOrder,
+        addBulkOrder,
+        markOrdersAsViewed,
+        confirmBulkOrder,
+        cancelBulkOrder,
+        updateBulkOrderStatus,
+        getBulkOrdersByStatus,
+        getCustomerNotifications,
+        markNotificationRead,
+        markAllNotificationsRead,
+        fetchOrders,
+        fetchBulkOrders,
+      }}
+    >
       {children}
     </OrderContext.Provider>
   );

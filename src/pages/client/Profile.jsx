@@ -2,6 +2,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useOrders } from '../../context/OrderContext';
+import { usersApi } from '../../api/api';
 import { User, Mail, Shield, LogOut, Phone, MapPin, ShoppingBag, Edit2, X, Check, Bell, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -13,7 +14,8 @@ const Profile = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({ name: '', phone: '', address: '' });
-  
+  const [notifications, setNotifications] = useState([]);
+
   const isAdmin = !!admin;
   const currentUser = isAdmin ? admin : user;
 
@@ -21,11 +23,18 @@ const Profile = () => {
     ? orders.filter(o => o.customer?.email === user.email).length
     : 0;
 
-  const notifications = !isAdmin && user?.email ? getCustomerNotifications(user.email) : [];
   const unreadCount = notifications.filter(n => !n.read).length;
   const myBulkOrders = !isAdmin && user?.email
     ? bulkOrders.filter(o => o.customer?.email === user.email)
     : [];
+
+  useEffect(() => {
+    if (!isAdmin && user?.email) {
+      getCustomerNotifications(user.email).then(setNotifications);
+    } else {
+      setNotifications([]);
+    }
+  }, [user?.email, isAdmin, getCustomerNotifications]);
 
   useEffect(() => {
     if (unreadCount > 0) {
@@ -54,12 +63,22 @@ const Profile = () => {
     setIsEditing(true);
   };
 
-  const handleSaveProfile = () => {
-    const updated = { ...user, ...editData };
-    localStorage.setItem('userAuth', JSON.stringify(updated));
-    loadUserFromStorage?.();
-    setIsEditing(false);
-    toast.success('Profile updated');
+  const handleSaveProfile = async () => {
+    if (!user?.email) return;
+    try {
+      const updated = await usersApi.update(user.email, {
+        name: editData.name,
+        phone: editData.phone,
+        address: editData.address,
+      });
+      const toStore = { ...user, ...updated };
+      localStorage.setItem('userAuth', JSON.stringify(toStore));
+      loadUserFromStorage?.();
+      setIsEditing(false);
+      toast.success('Profile updated and saved to database');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update profile');
+    }
   };
 
   if (!currentUser) {

@@ -48,9 +48,11 @@ const CheckoutForm = ({ orderDetails, isDemoMode, stripe, elements }) => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
-  const completePayment = (paymentMethod = 'Demo') => {
-    const order = addOrder({
+  const completePayment = async (paymentMethod = 'Demo') => {
+    const order = await addOrder({
       ...orderDetails,
+      deliveryAddress: orderDetails.address,
+      deliveryType: orderDetails.deliveryOption || 'delivery',
       customer: {
         name: customerName,
         email: customerEmail,

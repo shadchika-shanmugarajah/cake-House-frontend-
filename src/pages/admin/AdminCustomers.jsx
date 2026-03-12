@@ -1,15 +1,21 @@
 // src/pages/admin/AdminCustomers.jsx (CORRECTED)
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Users, Mail, Phone, Calendar, MapPin, Eye, ShoppingBag, DollarSign, LogIn } from 'lucide-react';
 import { useOrders } from '../../context/OrderContext';
+import { usersApi } from '../../api/api';
 import AdminBackHeader from '../../components/admin/AdminBackHeader';
 import { toast } from 'react-toastify';
-import './AdminCustomers.css'; // Import separate CSS
+import './AdminCustomers.css';
 
 const AdminCustomers = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [registeredUsers, setRegisteredUsers] = useState([]);
   const { orders, bulkOrders } = useOrders();
+
+  useEffect(() => {
+    usersApi.getAll().then(setRegisteredUsers).catch(() => setRegisteredUsers([]));
+  }, []);
 
   const { customers, stats } = useMemo(() => {
     const customerMap = new Map();
@@ -46,8 +52,7 @@ const AdminCustomers = () => {
     };
     addFromOrders(orders);
     addFromOrders(bulkOrders, true);
-    const registeredUsers = JSON.parse(localStorage.getItem('cakeHouseRegisteredUsers') || '[]');
-    registeredUsers.forEach(u => {
+    (registeredUsers || []).forEach(u => {
       const key = (u.email || '').toLowerCase();
       if (!key) return;
       if (!customerMap.has(key)) {
@@ -121,7 +126,7 @@ const AdminCustomers = () => {
         revenue: `$${totalRevenue.toFixed(2)}`,
       },
     };
-  }, [orders, bulkOrders]);
+  }, [orders, bulkOrders, registeredUsers]);
 
   const displayCustomers = customers.length > 0 ? customers : [
     { id: '1', name: 'Sample Customer', email: 'customer@example.com', phone: '—', address: '—', joinDate: '—', orders: 0, totalSpent: '$0.00', lastOrder: '—', status: 'active', orderDetails: [] },

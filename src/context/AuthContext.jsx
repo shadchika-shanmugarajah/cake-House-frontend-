@@ -1,9 +1,9 @@
 // src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { authApi } from '../api/api';
 
-// Create the context
-const AuthContext = createContext({}); // This line creates AuthContext
+const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -13,101 +13,30 @@ export const AuthProvider = ({ children }) => {
 
   const loadUserFromStorage = () => {
     const userData = localStorage.getItem('userAuth');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
+    if (userData) setUser(JSON.parse(userData));
   };
 
-  // Check for existing auth on mount
   useEffect(() => {
     const userData = localStorage.getItem('userAuth');
     const adminData = localStorage.getItem('adminAuth');
-    
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-    if (adminData) {
-      setAdmin(JSON.parse(adminData));
-    }
+    if (userData) setUser(JSON.parse(userData));
+    if (adminData) setAdmin(JSON.parse(adminData));
   }, []);
 
-  // Demo admin credentials
-  const demoAdmins = [
-    { email: 'admin@example.com', password: 'admin123', role: 'superadmin' },
-    { email: 'manager@example.com', password: 'manager123', role: 'manager' }
-  ];
-
-  // Demo regular users (for demo)
-  const demoUsers = [
-    { email: 'user@example.com', password: 'user123', name: 'Demo User' },
-    { email: 'john@example.com', password: 'john123', name: 'John Doe' }
-  ];
-
-  const login = (email, password) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // First check if it's an admin
-        const foundAdmin = demoAdmins.find(
-          admin => admin.email === email && admin.password === password
-        );
-        
-        if (foundAdmin) {
-          const adminData = {
-            email: foundAdmin.email,
-            role: foundAdmin.role,
-            isAuthenticated: true,
-            token: `demo-admin-token-${Date.now()}`
-          };
-          
-          localStorage.setItem('adminAuth', JSON.stringify(adminData));
-          setAdmin(adminData);
-          resolve({ type: 'admin', data: adminData });
-        } 
-        // Check demo users
-        else {
-          const foundUser = demoUsers.find(
-            user => user.email === email && user.password === password
-          );
-          
-          if (foundUser) {
-            const userData = {
-              email: foundUser.email,
-              name: foundUser.name,
-              isAuthenticated: true,
-              token: `demo-user-token-${Date.now()}`
-            };
-            
-            localStorage.setItem('userAuth', JSON.stringify(userData));
-            setUser(userData);
-            resolve({ type: 'user', data: userData });
-          } 
-          // Check registered users (from sign-up)
-          else {
-            const registered = JSON.parse(localStorage.getItem('cakeHouseRegisteredUsers') || '[]');
-            const foundRegistered = registered.find(
-              u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-            );
-            
-            if (foundRegistered) {
-              const userData = {
-                email: foundRegistered.email,
-                name: foundRegistered.name,
-                phone: foundRegistered.phone,
-                address: foundRegistered.address,
-                isAuthenticated: true,
-                token: `demo-user-token-${Date.now()}`
-              };
-              
-              localStorage.setItem('userAuth', JSON.stringify(userData));
-              setUser(userData);
-              resolve({ type: 'user', data: userData });
-            } else {
-              reject(new Error('Invalid credentials'));
-            }
-          }
-        }
-      }, 500);
-    });
+  const login = async (email, password) => {
+    try {
+      const res = await authApi.login({ email, password });
+      if (res.type === 'admin') {
+        localStorage.setItem('adminAuth', JSON.stringify(res.data));
+        setAdmin(res.data);
+        return res;
+      }
+      localStorage.setItem('userAuth', JSON.stringify(res.data));
+      setUser(res.data);
+      return res;
+    } catch (err) {
+      throw new Error(err.message || 'Invalid credentials');
+    }
   };
 
   const logoutUser = () => {

@@ -6,6 +6,7 @@ import './AdminProducts.css';
 import { Plus, Edit, Trash2, Eye, Filter, Search, Download, Cake } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useProducts } from '../../context/ProductContext';
+import { exportToCSV } from '../../utils/exportUtils';
 
 const AdminProducts = () => {
   const { products, addProduct, deleteProduct } = useProducts();
@@ -87,7 +88,21 @@ const AdminProducts = () => {
             <Filter size={18} />
             <span>Filter</span>
           </button>
-          <button className="btn-icon">
+          <button 
+            className="btn-icon"
+            onClick={() => {
+              const cols = [
+                { key: 'id', label: 'ID' },
+                { key: 'name', label: 'Cake Name' },
+                { key: 'category', label: 'Category' },
+                { key: 'price', label: 'Price' },
+                { key: 'stock', label: 'Stock' },
+                { key: 'description', label: 'Description' },
+              ];
+              exportToCSV(filteredProducts, 'products', cols);
+              toast.success('Products exported');
+            }}
+          >
             <Download size={18} />
             <span>Export</span>
           </button>

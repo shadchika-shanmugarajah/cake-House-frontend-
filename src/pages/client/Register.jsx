@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
+import { authApi } from '../../api/api';
 import { Mail, Lock, User, Phone, MapPin, Eye, EyeOff, UserPlus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import './Register.css';
@@ -46,36 +47,21 @@ const Register = () => {
     setLoading(true);
 
     try {
-      // Store registered user (with password for login) + current session
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const registered = JSON.parse(localStorage.getItem('cakeHouseRegisteredUsers') || '[]');
-      const existing = registered.find(u => u.email.toLowerCase() === formData.email.toLowerCase());
-      if (existing) {
-        const updated = registered.map(u => 
-          u.email.toLowerCase() === formData.email.toLowerCase()
-            ? { ...u, name: formData.name, phone: formData.phone, address: formData.address, password: formData.password }
-            : u
-        );
-        localStorage.setItem('cakeHouseRegisteredUsers', JSON.stringify(updated));
-      } else {
-        registered.push({
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-          phone: formData.phone,
-          address: formData.address,
-        });
-        localStorage.setItem('cakeHouseRegisteredUsers', JSON.stringify(registered));
-      }
-
-      const userData = {
+      const { user: savedUser } = await authApi.register({
         name: formData.name,
         email: formData.email,
+        password: formData.password,
         phone: formData.phone,
         address: formData.address,
+      });
+
+      const userData = {
+        name: savedUser.name || formData.name,
+        email: savedUser.email || formData.email,
+        phone: savedUser.phone || formData.phone,
+        address: savedUser.address || formData.address,
         isAuthenticated: true,
-        token: `demo-user-token-${Date.now()}`,
+        token: `user-${Date.now()}`,
       };
       localStorage.setItem('userAuth', JSON.stringify(userData));
       loadUserFromStorage?.();

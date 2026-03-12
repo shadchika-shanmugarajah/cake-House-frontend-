@@ -8,6 +8,7 @@ import {
   Package, CheckCircle, XCircle, Clock, Truck
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { exportToCSV } from '../../utils/exportUtils';
 import './AdminOrders.css'; // Import separate CSS
 
 const AdminOrders = () => {
@@ -19,116 +20,28 @@ const AdminOrders = () => {
     markOrdersAsViewed?.();
   }, [markOrdersAsViewed]);
 
-  const mockOrders = [
-    { 
-      id: 'ORD-7842', 
-      customer: 'John Doe', 
-      date: 'Jan 15, 2026', 
-      amount: 'Rs 1,299', 
-      status: 'completed',
-      items: [
-        { name: 'Red Velvet Cake', quantity: 1, price: 'Rs 459' },
-        { name: 'Chocolate Cupcakes', quantity: 6, price: 'Rs 840' }
-      ],
-      customerPhone: '+1 234 567 890',
-      customerEmail: 'john@example.com',
-      deliveryAddress: '123 Main St, New York, NY 10001',
-      deliveryType: 'Home Delivery',
-      paymentMethod: 'Credit Card',
-      specialInstructions: 'Add birthday message: "Happy Birthday!"'
-    },
-    { 
-      id: 'ORD-7841', 
-      customer: 'Jane Smith', 
-      date: 'Jan 14, 2026', 
-      amount: 'Rs 3,450', 
-      status: 'processing',
-      items: [
-        { name: 'Wedding Cake Large', quantity: 1, price: 'Rs 3,450' }
-      ],
-      customerPhone: '+1 234 567 891',
-      customerEmail: 'jane@example.com',
-      deliveryAddress: '456 Oak Ave, Los Angeles, CA 90001',
-      deliveryType: 'Pickup',
-      paymentMethod: 'Cash on Delivery',
-      specialInstructions: 'Allergy: No nuts'
-    },
-    { 
-      id: 'ORD-7840', 
-      customer: 'Bob Johnson', 
-      date: 'Jan 14, 2026', 
-      amount: 'Rs 2,255', 
-      status: 'pending',
-      items: [
-        { name: 'Custom Birthday Cake', quantity: 1, price: 'Rs 1,899' },
-        { name: 'Assorted Pastries', quantity: 12, price: 'Rs 356' }
-      ],
-      customerPhone: '+1 234 567 892',
-      customerEmail: 'bob@example.com',
-      deliveryAddress: '789 Pine Rd, Chicago, IL 60601',
-      deliveryType: 'Home Delivery',
-      paymentMethod: 'Credit Card',
-      specialInstructions: 'Custom design with blue frosting'
-    },
-    { 
-      id: 'ORD-7839', 
-      customer: 'Alice Brown', 
-      date: 'Jan 13, 2026', 
-      amount: 'Rs 625', 
-      status: 'completed',
-      items: [
-        { name: 'Vanilla Berry Cake', quantity: 1, price: 'Rs 489' },
-        { name: 'Coffee', quantity: 2, price: 'Rs 136' }
-      ],
-      customerPhone: '+1 234 567 893',
-      customerEmail: 'alice@example.com',
-      deliveryAddress: '321 Elm St, Houston, TX 77001',
-      deliveryType: 'Pickup',
-      paymentMethod: 'Debit Card',
-      specialInstructions: 'No cream, extra berries'
-    },
-    { 
-      id: 'ORD-7838', 
-      customer: 'Charlie Wilson', 
-      date: 'Jan 12, 2026', 
-      amount: 'Rs 9,850', 
-      status: 'delivered',
-      items: [
-        { name: 'Premium Wedding Cake', quantity: 1, price: 'Rs 9,850' }
-      ],
-      customerPhone: '+1 234 567 894',
-      customerEmail: 'charlie@example.com',
-      deliveryAddress: '654 Maple Dr, Phoenix, AZ 85001',
-      deliveryType: 'Home Delivery',
-      paymentMethod: 'Bank Transfer',
-      specialInstructions: 'Three-tier cake with pink roses'
-    },
-  ];
-
   const formatOrderFromContext = (o) => ({
     id: o.id,
+    total: o.total,
     customer: o.customer?.name || 'Guest',
     date: o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—',
-    amount: `$${(o.total || 0).toFixed(2)}`,
+    amount: `Rs ${(o.total || 0).toLocaleString()}`,
     status: o.status || 'completed',
-    isNew: o.isNew,
+    isNew: o.unread ?? o.isNew,
     items: (o.items || []).map(i => ({
       name: i.name,
       quantity: i.quantity,
-      price: `$${((i.price || 0) * (i.quantity || 1)).toFixed(2)}`,
+      price: `Rs ${((i.price || 0) * (i.quantity || 1)).toLocaleString()}`,
     })),
     customerPhone: o.customer?.phone || '—',
     customerEmail: o.customer?.email || '—',
-    deliveryAddress: o.address || '—',
+    deliveryAddress: o.deliveryAddress || o.address || '—',
     deliveryType: o.deliveryOption === 'delivery' ? 'Home Delivery' : 'Pickup',
     paymentMethod: o.paymentMethod || 'Stripe',
     specialInstructions: o.specialInstructions || '',
   });
 
-  const orders = [
-    ...contextOrders.map(formatOrderFromContext),
-    ...mockOrders,
-  ];
+  const orders = contextOrders.map(formatOrderFromContext);
 
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
@@ -156,16 +69,13 @@ const AdminOrders = () => {
     }
   };
 
-  const totalRevenue = orders.reduce((sum, o) => {
-    const amt = parseFloat(String(o.amount).replace(/[^0-9.]/g, '')) || 0;
-    return sum + amt;
-  }, 0);
+  const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || parseFloat(String(o.amount).replace(/[^0-9.]/g, '')) || 0), 0);
   const stats = {
     total: orders.length,
     pending: orders.filter(o => o.status === 'pending').length,
     processing: orders.filter(o => o.status === 'processing').length,
     completed: orders.filter(o => o.status === 'completed' || o.status === 'delivered').length,
-    revenue: `$${totalRevenue.toFixed(2)}`
+    revenue: `Rs ${totalRevenue.toLocaleString()}`
   };
 
   return (
@@ -210,7 +120,23 @@ const AdminOrders = () => {
             <Filter size={16} />
             Filter
           </button>
-          <button className="order-action-btn secondary">
+          <button 
+            className="order-action-btn secondary"
+            onClick={() => {
+              const cols = [
+                { key: 'id', label: 'Order ID' },
+                { key: 'customer', label: 'Customer' },
+                { key: 'date', label: 'Date' },
+                { key: 'amount', label: 'Amount' },
+                { key: 'status', label: 'Status' },
+                { key: 'customerPhone', label: 'Phone' },
+                { key: 'customerEmail', label: 'Email' },
+                { key: 'deliveryAddress', label: 'Address' },
+              ];
+              exportToCSV(orders, 'orders', cols);
+              toast.success('Orders exported');
+            }}
+          >
             <Download size={16} />
             Export
           </button>

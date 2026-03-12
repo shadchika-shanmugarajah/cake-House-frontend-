@@ -19,6 +19,7 @@ const Login = () => {
   const location = useLocation();
 
   const from = (typeof location.state?.from === 'string' ? location.state.from : location.state?.from?.pathname) || '/';
+  const isAdminLogin = location.state?.adminLogin;
 
   const handleChange = (e) => {
     setFormData({
@@ -39,7 +40,7 @@ const Login = () => {
         navigate('/admin/dashboard');
       } else {
         toast.success('Login successful!');
-        navigate(from, { replace: true });
+        navigate(isAdminLogin ? '/' : from, { replace: true });
       }
     } catch (error) {
       toast.error(error.message || 'Login failed');
@@ -56,7 +57,7 @@ const Login = () => {
             🎂 Cake House
           </Link>
           <h1>Welcome Back</h1>
-          <p>Sign in to your account</p>
+          <p>{isAdminLogin ? 'Enter admin credentials to access the dashboard' : 'Sign in to your account'}</p>
           <div className="admin-credentials-box">
             <strong>Admin Login Credentials</strong>
             <p>Email: <code>admin@example.com</code></p>

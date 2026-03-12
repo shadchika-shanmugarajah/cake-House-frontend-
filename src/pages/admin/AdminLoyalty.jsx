@@ -7,6 +7,7 @@ import {
   User, ShoppingBag, Phone, Mail, BarChart3, Eye
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { exportToCSV } from '../../utils/exportUtils';
 import './AdminLoyalty.css';
 
 const AdminLoyalty = () => {
@@ -517,7 +518,25 @@ const AdminLoyalty = () => {
                 <Filter size={16} />
                 Filter
               </button>
-              <button className="loyalty-btn secondary">
+              <button 
+                className="loyalty-btn secondary"
+                onClick={() => {
+                  const cols = [
+                    { key: 'id', label: 'Member ID' },
+                    { key: 'name', label: 'Name' },
+                    { key: 'tier', label: 'Tier' },
+                    { key: 'points', label: 'Points' },
+                    { key: 'totalOrders', label: 'Total Orders' },
+                    { key: 'totalSpent', label: 'Total Spent' },
+                    { key: 'email', label: 'Email' },
+                    { key: 'phone', label: 'Phone' },
+                    { key: 'joinDate', label: 'Join Date' },
+                    { key: 'lastOrder', label: 'Last Order' },
+                  ];
+                  exportToCSV(loyaltyMembers, 'loyalty-members', cols);
+                  toast.success('Loyalty members exported');
+                }}
+              >
                 <Download size={16} />
                 Export
               </button>

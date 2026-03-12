@@ -1,149 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminBackHeader from '../../components/admin/AdminBackHeader';
 import { 
   Package, Search, Filter, Download, Plus, Edit, 
-  Trash2, AlertCircle, CheckCircle, XCircle, 
+  Trash2, AlertCircle, CheckCircle, XCircle, Eye,
   TrendingUp, TrendingDown, BarChart3, RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { inventoryApi } from '../../api/api';
+import { exportToCSV } from '../../utils/exportUtils';
 import './AdminInventory.css';
-
 
 const AdminInventory = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
-  const inventoryItems = [
-    { 
-      id: 'INV-001', 
-      name: 'All-Purpose Flour', 
-      category: 'Dry Ingredients',
-      sku: 'FLR-AP-5KG',
-      stock: 42,
-      unit: 'kg',
-      minStock: 20,
-      maxStock: 100,
-      price: 'Rs 120',
-      supplier: 'Bakery Supplies Co.',
-      lastRestock: 'Jan 15, 2026',
-      status: 'in-stock',
-      location: 'Aisle 1, Shelf B'
-    },
-    { 
-      id: 'INV-002', 
-      name: 'Granulated Sugar', 
-      category: 'Dry Ingredients',
-      sku: 'SGR-GR-10KG',
-      stock: 15,
-      unit: 'kg',
-      minStock: 25,
-      maxStock: 80,
-      price: 'Rs 95',
-      supplier: 'Sweetness Inc.',
-      lastRestock: 'Jan 12, 2026',
-      status: 'low-stock',
-      location: 'Aisle 1, Shelf C'
-    },
-    { 
-      id: 'INV-003', 
-      name: 'Unsalted Butter', 
-      category: 'Dairy',
-      sku: 'BTR-UN-1KG',
-      stock: 68,
-      unit: 'kg',
-      minStock: 30,
-      maxStock: 150,
-      price: 'Rs 650',
-      supplier: 'Fresh Dairy Co.',
-      lastRestock: 'Jan 14, 2026',
-      status: 'in-stock',
-      location: 'Fridge 2'
-    },
-    { 
-      id: 'INV-004', 
-      name: 'Fresh Eggs', 
-      category: 'Dairy',
-      sku: 'EGG-FR-30CT',
-      stock: 8,
-      unit: 'cartons',
-      minStock: 15,
-      maxStock: 50,
-      price: 'Rs 320',
-      supplier: 'Farm Fresh Eggs',
-      lastRestock: 'Jan 13, 2026',
-      status: 'out-of-stock',
-      location: 'Fridge 1'
-    },
-    { 
-      id: 'INV-005', 
-      name: 'Vanilla Extract', 
-      category: 'Flavorings',
-      sku: 'VNL-EX-500ML',
-      stock: 120,
-      unit: 'ml',
-      minStock: 10,
-      maxStock: 200,
-      price: 'Rs 450',
-      supplier: 'Flavor Masters',
-      lastRestock: 'Jan 10, 2026',
-      status: 'in-stock',
-      location: 'Aisle 3, Shelf A'
-    },
-    { 
-      id: 'INV-006', 
-      name: 'Chocolate Chips', 
-      category: 'Add-ins',
-      sku: 'CHO-CH-2KG',
-      stock: 22,
-      unit: 'kg',
-      minStock: 20,
-      maxStock: 60,
-      price: 'Rs 850',
-      supplier: 'Chocolate World',
-      lastRestock: 'Jan 16, 2026',
-      status: 'in-stock',
-      location: 'Aisle 4, Shelf B'
-    },
-    { 
-      id: 'INV-007', 
-      name: 'Baking Powder', 
-      category: 'Leavening Agents',
-      sku: 'BPW-500G',
-      stock: 5,
-      unit: 'kg',
-      minStock: 8,
-      maxStock: 30,
-      price: 'Rs 180',
-      supplier: 'Bakery Supplies Co.',
-      lastRestock: 'Jan 5, 2026',
-      status: 'low-stock',
-      location: 'Aisle 2, Shelf A'
-    },
-    { 
-      id: 'INV-008', 
-      name: 'Heavy Cream', 
-      category: 'Dairy',
-      sku: 'CRM-HV-1L',
-      stock: 0,
-      unit: 'liters',
-      minStock: 12,
-      maxStock: 40,
-      price: 'Rs 380',
-      supplier: 'Fresh Dairy Co.',
-      lastRestock: 'Jan 3, 2026',
-      status: 'out-of-stock',
-      location: 'Fridge 3'
-    },
-  ];
+  useEffect(() => {
+    const params = {};
+    if (searchQuery) params.search = searchQuery;
+    if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+    inventoryApi.getAll(params)
+      .then(setInventoryItems)
+      .catch(() => setInventoryItems([]))
+      .finally(() => setLoading(false));
+  }, [searchQuery, categoryFilter]);
 
   const stats = {
-    totalItems: 156,
-    lowStock: 8,
-    outOfStock: 3,
-    totalValue: 'Rs 45,820',
-    categories: 12
+    totalItems: inventoryItems.length,
+    lowStock: inventoryItems.filter(i => (i.status === 'low-stock') || (i.stock > 0 && i.stock <= (i.minStock || 0))).length,
+    outOfStock: inventoryItems.filter(i => (i.status === 'out-of-stock') || i.stock === 0).length,
+    totalValue: `Rs ${inventoryItems.reduce((s, i) => s + (Number(i.price) || 0) * (i.stock || 0), 0).toLocaleString()}`,
+    categories: [...new Set(inventoryItems.map(i => i.category))].length,
   };
 
   const handleViewItem = (item) => {
@@ -156,9 +47,15 @@ const AdminInventory = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteItem = (itemId) => {
-    if (window.confirm(`Are you sure you want to delete item ${itemId}?`)) {
+  const handleDeleteItem = async (itemId) => {
+    if (!window.confirm(`Are you sure you want to delete item ${itemId}?`)) return;
+    try {
+      await inventoryApi.delete(itemId);
+      setInventoryItems(prev => prev.filter(i => i.id !== itemId && String(i._id) !== String(itemId)));
       toast.success(`Item ${itemId} deleted successfully`);
+      if (selectedItem?.id === itemId) setIsModalOpen(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete item');
     }
   };
 
@@ -264,23 +161,42 @@ const AdminInventory = () => {
       <div className="inventory-toolbar">
         <div className="inventory-search">
           <Search size={18} />
-          <input type="text" placeholder="Search by name, SKU, category..." />
+          <input type="text" placeholder="Search by name, SKU, category..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
         <div className="inventory-actions">
           <button className="inventory-btn secondary">
             <Filter size={16} />
             Filter
           </button>
-          <button className="inventory-btn secondary">
+          <button 
+            className="inventory-btn secondary"
+            onClick={() => {
+              const cols = [
+                { key: 'id', label: 'Item ID' },
+                { key: 'name', label: 'Product Name' },
+                { key: 'category', label: 'Category' },
+                { key: 'sku', label: 'SKU' },
+                { key: 'stock', label: 'Current Stock' },
+                { key: 'minStock', label: 'Min Stock' },
+                { key: 'maxStock', label: 'Max Stock' },
+                { key: 'price', label: 'Price' },
+                { key: 'status', label: 'Status' },
+                { key: 'supplier', label: 'Supplier' },
+              ];
+              exportToCSV(inventoryItems, 'inventory', cols);
+              toast.success('Inventory exported');
+            }}
+          >
             <Download size={16} />
             Export
           </button>
-          <select className="inventory-btn secondary" style={{padding: '8px 16px'}}>
-            <option>All Categories</option>
-            <option>Dry Ingredients</option>
-            <option>Dairy</option>
-            <option>Flavorings</option>
-            <option>Add-ins</option>
+          <select className="inventory-btn secondary" style={{padding: '8px 16px'}} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <option value="all">All Categories</option>
+            <option value="Dry Ingredients">Dry Ingredients</option>
+            <option value="Dairy">Dairy</option>
+            <option value="Flavorings">Flavorings</option>
+            <option value="Add-ins">Add-ins</option>
+            <option value="Leavening Agents">Leavening Agents</option>
           </select>
           <button 
             className="inventory-btn primary"
@@ -316,8 +232,13 @@ const AdminInventory = () => {
             </tr>
           </thead>
           <tbody>
-            {inventoryItems.map((item) => (
-              <tr key={item.id}>
+            {loading ? (
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>Loading...</td></tr>
+            ) : inventoryItems.length === 0 ? (
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>No inventory items. Run <code>npm run seed:inventory</code> in backend or add items.</td></tr>
+            ) : (
+            inventoryItems.map((item) => (
+              <tr key={item.id || item._id}>
                 <td>
                   <div style={{ fontWeight: '600', color: 'var(--primary)' }}>
                     {item.id}
@@ -366,7 +287,7 @@ const AdminInventory = () => {
                 </td>
                 <td>
                   <div style={{ fontWeight: '600', color: 'var(--success)' }}>
-                    {item.price}
+                    {typeof item.price === 'number' ? `Rs ${item.price}` : (item.price || 'Rs 0')}
                   </div>
                 </td>
                 <td>
@@ -390,7 +311,7 @@ const AdminInventory = () => {
                     </button>
                     <button 
                       className="inventory-action-btn danger"
-                      onClick={() => handleDeleteItem(item.id)}
+                      onClick={() => handleDeleteItem(item.id || item._id)}
                       title="Delete"
                     >
                       <Trash2 size={14} />
@@ -407,7 +328,8 @@ const AdminInventory = () => {
                   </div>
                 </td>
               </tr>
-            ))}
+            ))
+            )}
           </tbody>
         </table>
 
@@ -562,10 +484,36 @@ const AdminInventory = () => {
 
       <form 
         className="add-item-form"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          toast.success('New item added successfully!');
-          setIsAddModalOpen(false);
+          const form = e.target;
+          const stock = parseInt(form.initialStock?.value || 0, 10);
+          const minStock = parseInt(form.minStock?.value || 0, 10);
+          const maxStock = parseInt(form.maxStock?.value || 0, 10);
+          const price = parseFloat(form.price?.value || 0);
+          const status = stock === 0 ? 'out-of-stock' : stock <= minStock ? 'low-stock' : 'in-stock';
+          try {
+            const item = await inventoryApi.create({
+              name: form.itemName?.value,
+              category: form.category?.value,
+              sku: form.sku?.value,
+              unit: form.unit?.value,
+              stock,
+              minStock,
+              maxStock,
+              price,
+              supplier: form.supplier?.value || '',
+              location: form.location?.value || '',
+              lastRestock: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+              status,
+            });
+            setInventoryItems(prev => [item, ...prev]);
+            toast.success('New item added successfully!');
+            setIsAddModalOpen(false);
+            form.reset();
+          } catch (err) {
+            toast.error(err.message || 'Failed to add item');
+          }
         }}
       >
         <div className="form-section">
@@ -736,8 +684,5 @@ const AdminInventory = () => {
     </div>
   );
 };
-
-// Add missing import
-import { Eye } from 'lucide-react';
 
 export default AdminInventory;
