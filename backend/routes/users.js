@@ -31,6 +31,7 @@ router.put('/:email', async (req, res) => {
     if (req.body.name !== undefined) updates.name = req.body.name;
     if (req.body.phone !== undefined) updates.phone = req.body.phone;
     if (req.body.address !== undefined) updates.address = req.body.address;
+    if (req.body.profileImage !== undefined) updates.profileImage = req.body.profileImage;
     const user = await User.findOneAndUpdate(
       { email: req.params.email.toLowerCase() },
       { $set: updates },

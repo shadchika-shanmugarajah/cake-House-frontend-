@@ -7,19 +7,20 @@ import { toast } from 'react-toastify';
 import './Login.css';
 
 const Login = () => {
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  const { login } = useContext(AuthContext);
+  const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
-
-  const from = (typeof location.state?.from === 'string' ? location.state.from : location.state?.from?.pathname) || '/';
-  const isAdminLogin = location.state?.adminLogin;
+  
+  const from = (typeof location.state?.from === 'string'
+    ? location.state.from
+    : location.state?.from?.pathname) || '/';
 
   const handleChange = (e) => {
     setFormData({
@@ -30,18 +31,25 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const email = formData.email.trim().toLowerCase();
+    const password = formData.password;
+
+    if (!EMAIL_REGEX.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (!password.trim()) {
+      toast.error('Password is required');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const result = await login(formData.email, formData.password);
-      
-      if (result.type === 'admin') {
-        toast.success('Admin login successful!');
-        navigate('/admin/dashboard');
-      } else {
-        toast.success('Login successful!');
-        navigate(isAdminLogin ? '/' : from, { replace: true });
-      }
+      await loginUser(email, password);
+      toast.success('Login successful!');
+      navigate(from, { replace: true });
     } catch (error) {
       toast.error(error.message || 'Login failed');
     } finally {
@@ -57,12 +65,7 @@ const Login = () => {
             🎂 Cake House
           </Link>
           <h1>Welcome Back</h1>
-          <p>{isAdminLogin ? 'Enter admin credentials to access the dashboard' : 'Sign in to your account'}</p>
-          <div className="admin-credentials-box">
-            <strong>Admin Login Credentials</strong>
-            <p>Email: <code>admin@example.com</code></p>
-            <p>Password: <code>admin123</code></p>
-          </div>
+          <p>Sign in to your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -116,26 +119,8 @@ const Login = () => {
             <Link to="/register">Sign up here</Link>
           </p>
 
-          <Link to="/auth" className="back-to-auth">
-            ← Back to role selection
-          </Link>
-
-        
           <div className="quick-demo-section">
             <div className="demo-buttons">
-              <button 
-                type="button" 
-                className="demo-btn admin-demo"
-                onClick={() => {
-                  setFormData({
-                    email: 'admin@example.com',
-                    password: 'admin123'
-                  });
-                  toast.info('Admin credentials filled. Click "Sign In" to login as admin.');
-                }}
-              >
-              
-              </button>
               <button 
                 type="button" 
                 className="demo-btn user-demo"

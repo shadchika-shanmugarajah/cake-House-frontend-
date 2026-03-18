@@ -109,7 +109,7 @@ const AdminCustomers = () => {
     }
     const custList = Array.from(customerMap.values()).map(c => ({
       ...c,
-      totalSpent: `$${c.totalSpent.toFixed(2)}`,
+      totalSpent: `LKR ${c.totalSpent.toFixed(2)}`,
     }));
     const totalRevenue = custList.reduce((s, c) => s + parseFloat(String(c.totalSpent).replace(/[^0-9.]/g, '')) || 0, 0);
     return {
@@ -123,13 +123,13 @@ const AdminCustomers = () => {
           const y = new Date().getFullYear();
           return new Date(d).getMonth() === m && new Date(d).getFullYear() === y;
         }).length,
-        revenue: `$${totalRevenue.toFixed(2)}`,
+        revenue: `LKR ${totalRevenue.toFixed(2)}`,
       },
     };
   }, [orders, bulkOrders, registeredUsers]);
 
   const displayCustomers = customers.length > 0 ? customers : [
-    { id: '1', name: 'Sample Customer', email: 'customer@example.com', phone: '—', address: '—', joinDate: '—', orders: 0, totalSpent: '$0.00', lastOrder: '—', status: 'active', orderDetails: [] },
+    { id: '1', name: 'Sample Customer', email: 'customer@example.com', phone: '—', address: '—', joinDate: '—', orders: 0, totalSpent: 'LKR 0.00', lastOrder: '—', status: 'active', orderDetails: [] },
   ];
 
   const handleViewCustomer = (customer) => {
@@ -346,7 +346,7 @@ const AdminCustomers = () => {
                   {selectedCustomer.orderDetails.map((ord, idx) => (
                     <div key={idx} className="modal-order-item">
                       <div><strong>{ord.id}</strong> {ord.isBulk && <span className="bulk-tag">Bulk</span>}</div>
-                      <div>${ord.total?.toFixed(2)} • {new Date(ord.date).toLocaleDateString()}</div>
+                      <div>LKR {ord.total?.toFixed(2)} • {new Date(ord.date).toLocaleDateString()}</div>
                       {ord.items?.length > 0 && (
                         <div className="modal-order-items">
                           {ord.items.slice(0, 3).map((i, iidx) => (

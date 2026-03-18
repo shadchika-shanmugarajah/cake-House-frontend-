@@ -1,898 +1,266 @@
-import React, { useState, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useOrders } from '../../context/OrderContext';
-import { 
-  LogOut, Home, Cake, ShoppingCart, Users, Package, 
-  Bell, Search, Menu, Plus, Eye, 
-  BarChart, Calendar, DollarSign, Camera, Upload, 
-  Tag, Info, BookOpen, Hash, AlertCircle, CheckCircle, 
-  Image, Filter, Download, ChevronDown, Settings, Shield,
-  User, Mail, Phone, Calendar as CalendarIcon, Key
-} from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useProducts } from '../../context/ProductContext';
-import { toast } from 'react-toastify';
-import { exportToCSV } from '../../utils/exportUtils';
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import AdminLayout from './AdminLayout';
+import { analyticsApi } from '../../api/api';
+import {
+  Today,
+  DateRange,
+  AttachMoney,
+  HourglassTop,
+  CheckCircle,
+  LocalShipping,
+  WarningAmber,
+  ShoppingCart,
+} from '@mui/icons-material';
 import './AdminDashboard.css';
 
-const CATEGORY_MAP = { birthday: 'Birthday', wedding: 'Wedding', anniversary: 'Anniversary', custom: 'Custom', cupcakes: 'Cupcakes', desserts: 'Seasonal' };
+const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 
-const AdminDashboard = () => {
-  const { admin, logoutAdmin } = useAuth();
-  const { newOrdersCount, bulkOrders } = useOrders();
-  const { products, addProduct } = useProducts();
-  const pendingBulkCount = bulkOrders.filter(o => o.status === 'pending_approval').length;
-  const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeMenu, setActiveMenu] = useState('dashboard');
-  const [openSubmenu, setOpenSubmenu] = useState(null);
-  const [showAdminDetails, setShowAdminDetails] = useState(false);
-  const [isAddCakeOpen, setIsAddCakeOpen] = useState(false);
-  const fileInputRef = useRef(null);
-
-  // Sample Data
-  const ordersData = [
-    { id: 'ORD-7842', customer: 'aaa', date: 'Jan 15, 2026', amount: 'Rs 1299', status: 'completed' },
-    { id: 'ORD-7841', customer: 'bbb', date: 'Jan 14, 2026', amount: 'Rs 80', status: 'processing' },
-    { id: 'ORD-7840', customer: 'ccc', date: 'Jan 14, 2026', amount: 'Rs 2255', status: 'pending' },
-    { id: 'ORD-7839', customer: 'ddd', date: 'Jan 13, 2026', amount: 'Rs 625', status: 'completed' },
-    { id: 'ORD-7838', customer: 'eee', date: 'Jan 12, 2026', amount: 'Rs 180', status: 'cancelled' }
-  ];
-
-  const topCakesData = products.slice(0, 6).map(p => ({
-    name: p.name,
-    category: p.category,
-    sales: p.reviewCount || 0,
-    price: `Rs ${p.price}`
-  }));
-
-  const [newCake, setNewCake] = useState({
-    name: '',
-    description: '',
-    category: '',
-    price: '',
-    discountPrice: '',
-    ingredients: '',
-    allergens: '',
-    weight: '',
-    servings: '',
-    preparationTime: '',
-    isAvailable: true,
-    isFeatured: false,
-    tags: '',
-    images: [],
-    stock: ''
-  });
-
-  const statsData = {
-    revenue: { value: 'Rs 12,450' },
-    orders: { value: '142' },
-    customers: { value: '324' },
-    cakes: { value: '42'}
-  };
-
-  const handleLogout = () => {
-    logoutAdmin();
-    toast.success('Admin logged out successfully');
-    navigate('/login');
-  };
-
-  const toggleSubmenu = (menu) => {
-    setOpenSubmenu(openSubmenu === menu ? null : menu);
-  };
-
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
-    if (!isDarkMode) {
-      document.documentElement.classList.add('dark-theme');
-    } else {
-      document.documentElement.classList.remove('dark-theme');
-    }
-  };
-
-  const viewOrder = (orderId) => {
-    toast.info(`Viewing order: ${orderId}`);
-  };
-
-  const handleAddNewCake = () => {
-    setIsAddCakeOpen(true);
-  };
-
-  const viewAllOrders = () => {
-    toast.info('Showing all orders');
-  };
-
-  const handleAdminAvatarClick = () => {
-    setShowAdminDetails(!showAdminDetails);
-  };
-
-  const MAX_IMAGES = 5;
-  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB per image
-
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    processFiles(files);
-    e.target.value = '';
-  };
-
-  const processFiles = (files) => {
-    const remaining = MAX_IMAGES - (newCake.images?.length || 0);
-    const toProcess = files.slice(0, remaining);
-    toProcess.forEach((file) => {
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error(`"${file.name}" is too large. Max 2MB per image.`);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setNewCake((prev) => ({
-          ...prev,
-          images: [...(prev.images || []), ev.target.result].slice(0, MAX_IMAGES),
-        }));
-      };
-      reader.readAsDataURL(file);
-    });
-    if (files.length > remaining) {
-      toast.info(`Only ${MAX_IMAGES} images allowed. Added ${remaining}.`);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const files = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'));
-    if (files.length) processFiles(files);
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const removeImage = (index) => {
-    setNewCake((prev) => ({
-      ...prev,
-      images: (prev.images || []).filter((_, i) => i !== index),
-    }));
-  };
-
-  // Menu items
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <BarChart size={20} />, path: '/admin/dashboard' },
-    { 
-      id: 'cakes', 
-      label: 'Cakes', 
-      icon: <Cake size={20} />,
-      submenu: [
-        { label: 'All Cakes', path: '/admin/cakes' },
-        { label: 'Wedding Cakes', path: '/admin/cakes/wedding' },
-        { label: 'Birthday Cakes', path: '/admin/cakes/birthday' },
-        { label: 'Custom Cakes', path: '/admin/cakes/custom' }
-      ]
-    },
-    { id: 'orders', label: 'Orders', icon: <ShoppingCart size={20} />, path: '/admin/orders', badge: newOrdersCount },
-    { id: 'bulk-orders', label: 'Bulk Orders', icon: <Package size={20} />, path: '/admin/bulk-orders', badge: pendingBulkCount },
-    { id: 'customers', label: 'Customers', icon: <Users size={20} />, path: '/admin/customers' },
-    { id: 'inventory', label: 'Inventory', icon: <Package size={20} />, path: '/admin/inventory' },
-    { id: 'settings', label: 'Settings', icon: <Settings size={20} />, path: '/admin/settings' },
-  ];
-
-  // Check if admin is logged in
-  if (!admin) {
-    return (
-      <div className="admin-error">
-        <Shield size={48} />
-        <h2>Access Denied</h2>
-        <p>Please login as admin first.</p>
-        <Link to="/login" className="login-link">Go to Login</Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`admin-layout ${isDarkMode ? 'dark-theme' : ''}`}>
-      {/* Sidebar */}
-      <aside className={`sidebar ${isSidebarOpen ? 'active' : ''}`}>
-        <div className="sidebar-header">
-          <div className="logo">
-            <Cake size={24} />
-            <span>Cake House </span>
-          </div>
-          <div 
-            className="admin-info clickable"
-            onClick={handleAdminAvatarClick}
-            style={{ cursor: 'pointer' }}
-          >
-            <div className="admin-avatar">
-              {admin?.email?.charAt(0).toUpperCase() || 'A'}
-            </div>
-            <div className="admin-details">
-              <span className="admin-name">{admin?.email?.split('@')[0] || 'Admin'}</span>
-              <span className="admin-role">{admin?.role || 'Super Admin'}</span>
-            </div>
-          </div>
-        </div>
-
-        <nav className="menu">
-          {menuItems.map((item) => (
-            <div key={item.id} className="menu-item">
-              {item.submenu ? (
-                <>
-                  <button 
-                    className={`menu-link ${activeMenu === item.id ? 'active' : ''}`}
-                    onClick={() => toggleSubmenu(item.id)}
-                  >
-                    <span className="menu-icon">{item.icon}</span>
-                    <span className="menu-text">{item.label}</span>
-                    <ChevronDown size={16} className={`chevron ${openSubmenu === item.id ? 'open' : ''}`} />
-                  </button>
-                  {openSubmenu === item.id && (
-                    <div className="submenu">
-                      {item.submenu.map((sub) => (
-                        <Link
-                          key={sub.label}
-                          to={sub.path}
-                          className="submenu-link"
-                          onClick={() => setIsSidebarOpen(false)}
-                        >
-                          {sub.label}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <Link
-                  to={item.path || '#'}
-                  className={`menu-link ${activeMenu === item.id ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveMenu(item.id);
-                    setIsSidebarOpen(false);
-                  }}
-                >
-                  <span className="menu-icon">{item.icon}</span>
-                  <span className="menu-text">{item.label}</span>
-                  {item.badge > 0 && (
-                    <span className="menu-badge">{item.badge}</span>
-                  )}
-                </Link>
-              )}
-            </div>
-          ))}
-        </nav>
-
-        <div className="sidebar-footer">
-          <button onClick={toggleDarkMode} className="theme-toggle">
-            {isDarkMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
-          </button>
-          <button onClick={handleLogout} className="logout-btn">
-            <LogOut size={20} />
-            <span>Logout</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Admin Details Modal */}
-      {showAdminDetails && (
-        <div className="modal-overlay" onClick={() => setShowAdminDetails(false)}>
-          <div className="admin-details-modal" onClick={(e) => e.stopPropagation()}>
-            <button 
-              className="modal-close"
-              onClick={() => setShowAdminDetails(false)}
-            >
-              ×
-            </button>
-            
-            <div className="admin-details-header">
-              <div className="admin-details-avatar">
-                {admin?.email?.charAt(0).toUpperCase() || 'A'}
-              </div>
-              <div className="admin-details-title">
-                <h3>{admin?.email?.split('@')[0] || 'Admin'}</h3>
-                <p>{admin?.role || 'Super Admin'}</p>
-              </div>
-            </div>
-
-            <div className="admin-details-content">
-              <div className="admin-details-info">
-                <div className="admin-details-item">
-                  <div className="admin-details-icon">
-                    <Mail size={16} />
-                  </div>
-                  <div>
-                    <div className="admin-details-label">Email</div>
-                    <div className="admin-details-value">{admin?.email || 'admin@example.com'}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="admin-details-actions">
-                <button className="admin-details-btn">
-                  <User size={16} />
-                  <span>Edit Profile</span>
-                </button>
-                <button className="admin-details-btn">
-                  <Key size={16} />
-                  <span>Change Password</span>
-                </button>
-                <button 
-                  className="admin-details-btn logout"
-                  onClick={handleLogout}
-                >
-                  <LogOut size={16} />
-                  <span>Logout</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Cake Modal */}
-      {isAddCakeOpen && (
-        <div className="modal-overlay" onClick={() => setIsAddCakeOpen(false)}>
-          <div className="cake-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button 
-              className="modal-close"
-              onClick={() => setIsAddCakeOpen(false)}
-            >
-              ×
-            </button>
-            
-            <h2 className="cake-modal-title">Add New Cake</h2>
-            
-            <div className="cake-form">
-              {/* Form Tabs */}
-           
-              <div className="form-content">
-                {/* Basic Information Section */}
-                <div className="form-section">
-                  <h3>
-                    <Info size={18} />
-                    Basic Information
-                  </h3>
-                  <div className="form-row">
-                    <div className="form-group full-width">
-                      <label>Cake Name *</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g., Red Velvet Dream"
-                        value={newCake.name}
-                        onChange={(e) => setNewCake({...newCake, name: e.target.value})}
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="form-row">
-                    <div className="form-group full-width">
-                      <label>Description</label>
-                      <textarea 
-                        placeholder="Describe your cake... (e.g., Layers of moist red velvet cake with cream cheese frosting)"
-                        value={newCake.description}
-                        onChange={(e) => setNewCake({...newCake, description: e.target.value})}
-                        rows="3"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Category *</label>
-                      <select 
-                        value={newCake.category}
-                        onChange={(e) => setNewCake({...newCake, category: e.target.value})}
-                      >
-                        <option value="">Select Category</option>
-                        <option value="birthday">Birthday Cakes</option>
-                        <option value="wedding">Wedding Cakes</option>
-                        <option value="anniversary">Anniversary Cakes</option>
-                        <option value="custom">Custom Cakes</option>
-                        <option value="cupcakes">Cupcakes</option>
-                        <option value="desserts">Desserts</option>
-                      </select>
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Weight (kg)</label>
-                      <input 
-                        type="number" 
-                        step="0.1"
-                        placeholder="e.g., 1.5"
-                        value={newCake.weight}
-                        onChange={(e) => setNewCake({...newCake, weight: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Servings</label>
-                      <input 
-                        type="number"
-                        placeholder="e.g., 8-10"
-                        value={newCake.servings}
-                        onChange={(e) => setNewCake({...newCake, servings: e.target.value})}
-                      />
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Preparation Time</label>
-                      <select 
-                        value={newCake.preparationTime}
-                        onChange={(e) => setNewCake({...newCake, preparationTime: e.target.value})}
-                      >
-                        <option value="">Select Time</option>
-                        <option value="24h">24 Hours</option>
-                        <option value="48h">48 Hours</option>
-                        <option value="72h">72 Hours</option>
-                        <option value="1week">1 Week</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Pricing Section */}
-                <div className="form-section">
-                  <h3>
-                    <DollarSign size={18} />
-                    Pricing
-                  </h3>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Base Price (Rs) *</label>
-                      <input 
-                        type="number"
-                        step="0.01"
-                        placeholder="e.g., 1499"
-                        value={newCake.price}
-                        onChange={(e) => setNewCake({...newCake, price: e.target.value})}
-                        required
-                      />
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Discounted Price (Rs)</label>
-                      <input 
-                        type="number"
-                        step="0.01"
-                        placeholder="e.g., 1299"
-                        value={newCake.discountPrice}
-                        onChange={(e) => setNewCake({...newCake, discountPrice: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="pricing-info">
-                    <div className="info-item">
-                      <span>Profit Margin:</span>
-                      <strong>45%</strong>
-                    </div>
-                    <div className="info-item">
-                      <span>Tax Included:</span>
-                      <strong>18% GST</strong>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Ingredients & Allergens */}
-                <div className="form-section">
-                  <h3>
-                    <BookOpen size={18} />
-                    Ingredients & Allergens
-                  </h3>
-                  <div className="form-row">
-                    <div className="form-group full-width">
-                      <label>Ingredients *</label>
-                      <textarea 
-                        placeholder="List ingredients (comma separated) e.g., Flour, Sugar, Eggs, Cocoa, Cream Cheese"
-                        value={newCake.ingredients}
-                        onChange={(e) => setNewCake({...newCake, ingredients: e.target.value})}
-                        rows="3"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="form-row">
-                    <div className="form-group full-width">
-                      <label>Allergens & Dietary Info</label>
-                      <textarea 
-                        placeholder="e.g., Contains: Gluten, Dairy, Eggs. Suitable for vegetarians."
-                        value={newCake.allergens}
-                        onChange={(e) => setNewCake({...newCake, allergens: e.target.value})}
-                        rows="2"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="tags-section">
-                    <label>
-                      <Tag size={16} />
-                      Tags
-                    </label>
-                    <div className="tags-input">
-                      <input 
-                        type="text"
-                        placeholder="Add tags (press enter)"
-                        value={newCake.tags}
-                        onChange={(e) => setNewCake({...newCake, tags: e.target.value})}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                          }
-                        }}
-                      />
-                      <div className="tag-suggestions">
-                        <span className="tag-suggestion">vegetarian</span>
-                        <span className="tag-suggestion">best-seller</span>
-                        <span className="tag-suggestion">seasonal</span>
-                        <span className="tag-suggestion">gluten-free</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Images Section */}
-                <div className="form-section">
-                  <h3>
-                    <Image size={18} />
-                    Images
-                  </h3>
-                  <div className="image-upload-area">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileSelect}
-                      style={{ display: 'none' }}
-                    />
-                    <div
-                      className="upload-box"
-                      onDrop={handleDrop}
-                      onDragOver={handleDragOver}
-                      onClick={() => fileInputRef.current?.click()}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <Upload size={32} />
-                      <p>Drag & drop images here</p>
-                      <span>or</span>
-                      <button
-                        type="button"
-                        className="upload-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          fileInputRef.current?.click();
-                        }}
-                      >
-                        <Camera size={16} />
-                        Browse Files
-                      </button>
-                      <small>Recommended: 800×800px, Max 5 images (2MB each)</small>
-                    </div>
-                    
-                    <div className="image-preview-grid">
-                      {(newCake.images || []).map((img, idx) => (
-                        <div key={idx} className="image-preview">
-                          <img src={img} alt={`Preview ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
-                          <button type="button" className="remove-image" onClick={(e) => { e.stopPropagation(); removeImage(idx); }}>×</button>
-                        </div>
-                      ))}
-                      {(newCake.images?.length || 0) < MAX_IMAGES && (
-                        <div
-                          className="image-preview"
-                          onClick={() => fileInputRef.current?.click()}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <div className="image-placeholder">
-                            <Plus size={24} />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Availability & Features */}
-                <div className="form-section">
-                  <div className="toggle-section">
-                    <div className="toggle-item">
-                      <label>Available for Order</label>
-                      <label className="switch">
-                        <input 
-                          type="checkbox" 
-                          checked={newCake.isAvailable}
-                          onChange={(e) => setNewCake({...newCake, isAvailable: e.target.checked})}
-                        />
-                        <span className="slider"></span>
-                      </label>
-                    </div>
-                    
-                    <div className="toggle-item">
-                      <label>Featured Product</label>
-                      <label className="switch">
-                        <input 
-                          type="checkbox" 
-                          checked={newCake.isFeatured}
-                          onChange={(e) => setNewCake({...newCake, isFeatured: e.target.checked})}
-                        />
-                        <span className="slider"></span>
-                      </label>
-                    </div>
-                  </div>
-                  
-                  <div className="stock-section">
-                    <div className="form-group">
-                      <label>Initial Stock Quantity</label>
-                      <input 
-                        type="number"
-                        placeholder="e.g., 10"
-                        min="0"
-                        value={newCake.stock}
-                        onChange={(e) => setNewCake({...newCake, stock: e.target.value})}
-                      />
-                      <small>Set to 0 for made-to-order</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="form-actions">
-                <button 
-                  className="btn btn-secondary"
-                  onClick={() => setIsAddCakeOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => {
-                    if (!newCake.name?.trim()) {
-                      toast.error('Please enter cake name');
-                      return;
-                    }
-                    if (!newCake.price) {
-                      toast.error('Please enter price');
-                      return;
-                    }
-                    const category = CATEGORY_MAP[newCake.category] || newCake.category || 'Custom';
-                    const primaryImage = newCake.images?.[0] || null;
-                    addProduct({
-                      name: newCake.name.trim(),
-                      description: newCake.description || '',
-                      price: Number(newCake.price) || 0,
-                      category,
-                      stock: Number(newCake.stock) || 0,
-                      isTrending: newCake.isFeatured,
-                      image: primaryImage,
-                    });
-                    toast.success('Cake added successfully! It will appear on the client store.');
-                    setIsAddCakeOpen(false);
-                    setNewCake({
-                      name: '',
-                      description: '',
-                      category: '',
-                      price: '',
-                      discountPrice: '',
-                      ingredients: '',
-                      allergens: '',
-                      weight: '',
-                      servings: '',
-                      preparationTime: '',
-                      isAvailable: true,
-                      isFeatured: false,
-                      tags: '',
-                      images: [],
-                      stock: ''
-                    });
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                  }}
-                >
-                  <CheckCircle size={18} />
-                  Add Cake
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Overlay */}
-      {isSidebarOpen && (
-        <div className="overlay" onClick={() => setIsSidebarOpen(false)} />
-      )}
-
-      {/* Main Content */}
-      <div className="main-content">
-        {/* SIMPLIFIED Topbar - Only Search, Notification, Visit Store */}
-        <header className="topbar">
-          <div className="topbar-content">
-            <div className="search-box">
-              <Search size={18} />
-              <input type="text" placeholder="Search orders, customers..." />
-            </div>
-            
-            <button className="notification-btn">
-              <Bell size={20} />
-            </button>
-            
-            <Link to="/" className="store-link">
-              <Home size={20} />
-              <span>Visit Store</span>
-            </Link>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <main className="content-area">
-          {/* Dashboard Header */}
-          <div className="dashboard-header">
-            <h1>Dashboard Overview</h1>
-            <p>Welcome back, {admin?.email?.split('@')[0] || 'Admin'}!</p>
-          </div>
-
-          {/* Dashboard Stats */}
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-header">
-                <div className="stat-icon revenue">
-                  <DollarSign size={24} />
-                </div>
-                <div>
-                  <div className="stat-title">Total Revenue</div>
-                  <div className="stat-value">{statsData.revenue.value}</div>
-                  <div className="stat-trend">{statsData.revenue.trend}</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-header">
-                <div className="stat-icon orders">
-                  <ShoppingCart size={24} />
-                </div>
-                <div>
-                  <div className="stat-title">Total Orders</div>
-                  <div className="stat-value">{statsData.orders.value}</div>
-                  <div className="stat-trend">{statsData.orders.trend}</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-header">
-                <div className="stat-icon customers">
-                  <Users size={24} />
-                </div>
-                <div>
-                  <div className="stat-title">Total Customers</div>
-                  <div className="stat-value">{statsData.customers.value}</div>
-                  <div className="stat-trend">{statsData.customers.trend}</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-header">
-                <div className="stat-icon cakes">
-                  <Cake size={24} />
-                </div>
-                <div>
-                  <div className="stat-title">Total Cakes</div>
-                  <div className="stat-value">{statsData.cakes.value}</div>
-                  <div className="stat-trend">{statsData.cakes.trend}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Orders */}
-          <div className="section-card">
-            <div className="section-header">
-              <h3 className="section-title">Recent Orders</h3>
-              <div className="section-actions">
-                <button className="btn-icon">
-                  <Filter size={18} />
-                  <span>Filter</span>
-                </button>
-                <button 
-                  className="btn-icon"
-                  onClick={() => {
-                    const cols = [
-                      { key: 'id', label: 'Order ID' },
-                      { key: 'customer', label: 'Customer' },
-                      { key: 'date', label: 'Date' },
-                      { key: 'amount', label: 'Amount' },
-                      { key: 'status', label: 'Status' },
-                    ];
-                    exportToCSV(ordersData, 'orders', cols);
-                    toast.success('Orders exported');
-                  }}
-                >
-                  <Download size={18} />
-                  <span>Export</span>
-                </button>
-                <button className="btn btn-primary" onClick={viewAllOrders}>
-                  View All
-                </button>
-              </div>
-            </div>
-            
-            <div className="table-responsive">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Order ID</th>
-                    <th>Customer</th>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ordersData.map((order) => (
-                    <tr key={order.id}>
-                      <td>{order.id}</td>
-                      <td>{order.customer}</td>
-                      <td>{order.date}</td>
-                      <td>{order.amount}</td>
-                      <td>
-                        <span className={`status-badge status-${order.status}`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button 
-                          className="btn btn-sm" 
-                          onClick={() => viewOrder(order.id)}
-                        >
-                          <Eye size={16} />
-                          <span>View</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Top Selling Cakes */}
-          <div className="section-card">
-            <div className="section-header">
-              <h3 className="section-title">Top Selling Cakes</h3>
-              <button className="btn btn-primary" onClick={handleAddNewCake}>
-                <Plus size={18} />
-                <span>Add New Cake</span>
-              </button>
-            </div>
-            
-            <div className="cakes-grid">
-              {topCakesData.map((cake, index) => (
-                <div key={index} className="cake-card">
-                  <div className="cake-img">
-                    <Cake size={40} />
-                  </div>
-                  <div className="cake-info">
-                    <div className="cake-name">{cake.name}</div>
-                    <div className="cake-category">{cake.category}</div>
-                    <div className="cake-stats">
-                      <span className="cake-sales">{cake.sales} sold</span>
-                      <span className="cake-price">{cake.price}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </main>
-
-        
+const StatCard = ({ icon, iconBg, iconColor, value, label }) => (
+  <div className="admin-stat-card admin-animate-in">
+    <div className="admin-stat-card-header">
+      <div className="admin-stat-icon" style={{ background: iconBg, color: iconColor }}>
+        {icon}
       </div>
     </div>
+    <div className="admin-stat-value">{value}</div>
+    <div className="admin-stat-label">{label}</div>
+  </div>
+);
+
+const RevenueBars = ({ data }) => {
+  const maxRevenue = useMemo(
+    () => Math.max(...(data || []).map((item) => item.revenue || 0), 0),
+    [data],
+  );
+
+  return (
+    <div className="admin-analytics-bars">
+      {(data || []).map((item, idx) => {
+        const heightPct = maxRevenue > 0 ? Math.max(((item.revenue || 0) / maxRevenue) * 100, 6) : 6;
+        const showLabel = idx % 2 === 0 || idx === data.length - 1;
+        return (
+          <div className="admin-analytics-bar-col" key={item.date}>
+            <div
+              className="admin-analytics-bar"
+              style={{ height: `${heightPct}%` }}
+              title={`${item.date}: ${formatCurrency(item.revenue || 0)} (${item.orders || 0} orders)`}
+            />
+            <span className="admin-analytics-bar-label">{showLabel ? item.date.slice(5) : ''}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const StatusBreakdown = ({ rows }) => {
+  const total = (rows || []).reduce((sum, row) => sum + (row.count || 0), 0);
+
+  return (
+    <div className="admin-status-list">
+      {(rows || []).map((row) => {
+        const widthPct = total > 0 ? ((row.count || 0) / total) * 100 : 0;
+        return (
+          <div className="admin-status-row" key={row.status}>
+            <div className="admin-status-header">
+              <span>{row.label}</span>
+              <span>{row.count}</span>
+            </div>
+            <div className="admin-status-track">
+              <span style={{ width: `${widthPct}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const AdminDashboard = () => {
+  const [dashboard, setDashboard] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchDashboard = async () => {
+      try {
+        const data = await analyticsApi.getDashboard();
+        if (!mounted) return;
+        setDashboard(data);
+      } catch (err) {
+        if (!mounted) return;
+        setError(err?.message || 'Failed to load dashboard analytics');
+        console.error('Failed to fetch analytics dashboard:', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchDashboard();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const summary = dashboard?.summary || {};
+  const charts = dashboard?.charts || {};
+  const topProducts = dashboard?.topProducts || [];
+  const lowStockItems = dashboard?.inventory?.lowStockItems || [];
+
+  const cards = [
+    {
+      icon: <Today />,
+      iconBg: 'var(--admin-success-bg)',
+      iconColor: 'var(--admin-success)',
+      value: formatCurrency(summary.dailySales),
+      label: 'Daily Sales',
+    },
+    {
+      icon: <DateRange />,
+      iconBg: 'var(--admin-info-bg)',
+      iconColor: 'var(--admin-info)',
+      value: formatCurrency(summary.weeklySales),
+      label: 'Weekly Sales',
+    },
+    {
+      icon: <AttachMoney />,
+      iconBg: 'var(--admin-accent-bg)',
+      iconColor: 'var(--admin-accent)',
+      value: formatCurrency(summary.monthlyRevenue),
+      label: 'Monthly Revenue',
+    },
+    {
+      icon: <HourglassTop />,
+      iconBg: 'var(--admin-warning-bg)',
+      iconColor: 'var(--admin-warning)',
+      value: summary.pendingOrders ?? 0,
+      label: 'Pending Orders',
+    },
+    {
+      icon: <CheckCircle />,
+      iconBg: 'rgba(16, 185, 129, 0.15)',
+      iconColor: '#10B981',
+      value: summary.deliveredOrders ?? 0,
+      label: 'Delivered Orders',
+    },
+    {
+      icon: <WarningAmber />,
+      iconBg: 'var(--admin-danger-bg)',
+      iconColor: 'var(--admin-danger)',
+      value: summary.lowStockItems ?? 0,
+      label: 'Low Stock Items',
+    },
+    {
+      icon: <LocalShipping />,
+      iconBg: 'rgba(250, 204, 21, 0.12)',
+      iconColor: '#EAB308',
+      value: summary.bulkOrdersCount ?? 0,
+      label: 'Bulk Orders Count',
+    },
+    {
+      icon: <ShoppingCart />,
+      iconBg: 'rgba(56, 189, 248, 0.12)',
+      iconColor: '#38BDF8',
+      value: summary.totalOrders ?? 0,
+      label: 'Total Orders',
+    },
+  ];
+
+  return (
+    <AdminLayout badges={{ '/admin/orders': summary.unreadOrders, '/admin/bulk-orders': summary.pendingBulkOrders }}>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">Analytics Dashboard</h1>
+          <p className="admin-page-subtitle">Sales, orders, inventory, and product performance at a glance.</p>
+        </div>
+      </div>
+
+      {error && <div className="admin-dashboard-error">{error}</div>}
+
+      <div className="admin-stats-grid">
+        {cards.map((card) => (
+          <StatCard key={card.label} {...card} />
+        ))}
+      </div>
+
+      <div className="admin-analytics-grid">
+        <div className="admin-table-container admin-animate-in">
+          <div className="admin-table-header">
+            <span className="admin-table-title">Daily Sales Trend (Last 14 Days)</span>
+          </div>
+          <div className="admin-analytics-panel">
+            {loading ? <p className="admin-analytics-empty">Loading chart...</p> : <RevenueBars data={charts.dailySales || []} />}
+          </div>
+        </div>
+
+        <div className="admin-table-container admin-animate-in">
+          <div className="admin-table-header">
+            <span className="admin-table-title">Order Status Distribution</span>
+          </div>
+          <div className="admin-analytics-panel">
+            {loading ? <p className="admin-analytics-empty">Loading status...</p> : <StatusBreakdown rows={charts.orderStatus || []} />}
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-analytics-grid admin-analytics-grid-bottom">
+        <div className="admin-table-container admin-animate-in">
+          <div className="admin-table-header">
+            <span className="admin-table-title">Top-Selling Products</span>
+          </div>
+          <div className="admin-analytics-table-wrap">
+            <table className="admin-analytics-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Qty Sold</th>
+                  <th>Orders</th>
+                  <th>Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!loading && topProducts.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="admin-analytics-empty-cell">No product sales data yet.</td>
+                  </tr>
+                )}
+                {(topProducts || []).map((item) => (
+                  <tr key={`${item.productId || item.productName}`}>
+                    <td>{item.productName}</td>
+                    <td>{item.totalQuantity || 0}</td>
+                    <td>{item.orderCount || 0}</td>
+                    <td>{formatCurrency(item.totalRevenue || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="admin-table-container admin-animate-in">
+          <div className="admin-table-header">
+            <span className="admin-table-title">Low Stock Alert</span>
+          </div>
+          <div className="admin-low-stock-list">
+            {loading && <p className="admin-analytics-empty">Loading stock insights...</p>}
+            {!loading && lowStockItems.length === 0 && (
+              <p className="admin-analytics-empty">All products are currently above threshold.</p>
+            )}
+            {lowStockItems.map((item) => (
+              <div className="admin-low-stock-item" key={item._id}>
+                <div>
+                  <p className="admin-low-stock-name">{item.productName}</p>
+                  <p className="admin-low-stock-sub">Threshold: {item.lowStockThreshold}</p>
+                </div>
+                <span className={`admin-low-stock-pill ${item.status}`}>{item.stockQuantity} left</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
   );
 };
 

@@ -1,0 +1,82 @@
+.order-progress {
+  margin-top: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.order-progress-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+  flex: 1 1 0;
+  min-width: 130px;
+  padding: 0 8px;
+}
+
+.order-progress-marker {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #f5e8ec;
+  border: 1px solid #e7d5db;
+  color: #8a737c;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.order-progress-label {
+  font-size: 0.88rem;
+  color: #7d656e;
+}
+
+.order-progress-line {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  width: calc(100% - 16px);
+  height: 2px;
+  background: #e8d8dd;
+  z-index: 1;
+}
+
+.order-progress-step.completed .order-progress-marker,
+.order-progress-step.active .order-progress-marker {
+  background: #ffeff2;
+  border-color: #f06f8a;
+  color: #b03e58;
+}
+
+.order-progress-step.active .order-progress-label,
+.order-progress-step.completed .order-progress-label {
+  color: #40242d;
+  font-weight: 600;
+}
+
+.order-progress-line.completed {
+  background: #f06f8a;
+}
+
+.order-progress-cancelled {
+  margin-top: 16px;
+  border-radius: 12px;
+  padding: 12px;
+  background: #ffefef;
+  color: #8c2a2a;
+  border: 1px solid #f7c4c4;
+}
+
+@media (max-width: 768px) {
+  .order-progress-step {
+    min-width: 120px;
+  }
+}

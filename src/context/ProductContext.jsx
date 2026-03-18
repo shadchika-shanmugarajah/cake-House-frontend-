@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { productsApi } from '../api/api';
+import { productsApi, categoriesApi } from '../api/api';
 
 const ProductContext = createContext();
 
@@ -9,12 +9,19 @@ const mapProduct = (p) => ({ ...p, id: p._id || p.id });
 
 export const ProductProvider = ({ children }) => {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (categoryFilter = 'all') => {
     try {
-      const data = await productsApi.getAll();
-      setProducts((data || []).map(mapProduct));
+      const params = {};
+      if (categoryFilter && categoryFilter !== 'all') {
+        params.category = categoryFilter;
+      }
+      const data = await productsApi.getAll(params);
+      // API returns { products, pagination } — extract the array
+      const list = Array.isArray(data) ? data : (data.products || []);
+      setProducts(list.map(mapProduct));
     } catch (err) {
       console.error('Failed to fetch products:', err);
       setProducts([]);
@@ -23,8 +30,19 @@ export const ProductProvider = ({ children }) => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const data = await categoriesApi.getAll();
+      setCategories(data || []);
+    } catch (err) {
+      console.error('Failed to fetch categories:', err);
+      setCategories([]);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   const addProduct = async (productData) => {
@@ -63,8 +81,31 @@ export const ProductProvider = ({ children }) => {
     return products.find((p) => String(p.id) === pid || String(p._id) === pid);
   };
 
+  const addCategory = async (name, description) => {
+    try {
+      const created = await categoriesApi.create({ name, description });
+      setCategories((prev) => [created, ...prev]);
+      return created;
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const deleteCategory = async (id) => {
+    try {
+      await categoriesApi.delete(id);
+      setCategories((prev) => prev.filter((c) => String(c._id) !== String(id)));
+    } catch (err) {
+      throw err;
+    }
+  };
+
   return (
-    <ProductContext.Provider value={{ products, loading, addProduct, updateProduct, deleteProduct, getProductById, fetchProducts }}>
+    <ProductContext.Provider value={{ 
+      products, categories, loading, 
+      addProduct, updateProduct, deleteProduct, getProductById, fetchProducts,
+      addCategory, deleteCategory, fetchCategories 
+    }}>
       {children}
     </ProductContext.Provider>
   );

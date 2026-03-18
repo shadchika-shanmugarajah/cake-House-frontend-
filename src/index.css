@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Dancing+Script:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Dancing+Script:wght@400;500;600;700&display=swap');
 
 * {
   margin: 0;
@@ -7,28 +7,54 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f8f9fa;
+  background-color: #f8fafc; /* Sleeker, slightly cool slate white */
+  color: #1e293b;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', sans-serif;
 }
 
 :root {
-  --primary-color: #ff6b8b;
-  --secondary-color: #6b48ff;
-  --accent-color: #ffd166;
-  --text-color: #333;
-  --text-light: #666;
-  --background-color: #fff;
-  --background-light: #f9f7fe;
-  --border-color: #e0e0e0;
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.15);
-  --radius: 12px;
+  /* Premium Dynamic Palette */
+  --primary-color: #e11d48; /* Deeper crimson/rose */
+  --primary-light: #f43f5e;
+  --secondary-color: #4f46e5; /* Rich violet/indigo */
+  --accent-color: #f59e0b; /* Amber gold */
+
+  /* Neutrals */
+  --text-color: #0f172a; /* Near black slate */
+  --text-light: #64748b; /* Professional slate grey */
+  --background-color: #ffffff;
+  --background-light: #f1f5f9;
+  --border-color: #e2e8f0;
+  --border-light: rgba(15, 23, 42, 0.05);
+
+  /* Modern Diffuse Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  --shadow-md: 0 15px 35px -5px rgba(0, 0, 0, 0.08), 0 10px 15px -6px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 20px 40px -5px rgba(225, 29, 72, 0.1), 0 10px 15px -6px rgba(0, 0, 0, 0.04);
+
+  /* Premium Radii */
+  --radius: 16px;
   --radius-sm: 8px;
-  --transition: all 0.3s ease;
+  --radius-lg: 24px;
+  --radius-pill: 9999px;
+
+  /* Interactions */
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Glassmorphism Utilities */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
 }
 
 .App {
@@ -94,6 +120,7 @@ body {
   margin-bottom: 0.5rem;
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 

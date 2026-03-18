@@ -8,8 +8,8 @@ const AdminProtectedRoute = ({ children }) => {
   const location = useLocation();
 
   if (!isAdminAuthenticated) {
-    // Redirect to login with return URL
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    // Redirect to admin login with return URL
+    return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
 
   return children;

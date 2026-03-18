@@ -1,222 +1,140 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Home, Calendar, Clock, CreditCard, Wallet, MapPin } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { ShieldCheck, Lock, CreditCard, ArrowLeft, CheckCircle, Cake } from 'lucide-react';
 import { CartContext } from '../../context/CartContext';
 import { useOrders } from '../../context/OrderContext';
 import { toast } from 'react-toastify';
 import './Checkout.css';
 
-const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-const stripePromise = stripePublishableKey && !stripePublishableKey.includes('XXXX')
-  ? loadStripe(stripePublishableKey)
-  : null;
-
-const CARD_ELEMENT_OPTIONS = {
-  hidePostalCode: true,
-  style: {
-    base: {
-      fontSize: '16px',
-      color: '#424770',
-      fontFamily: '"Poppins", sans-serif',
-      '::placeholder': { color: '#aab7c4' },
-      padding: '12px',
-    },
-    invalid: {
-      color: '#ff6b8a',
-      iconColor: '#ff6b8a',
-    },
-  },
-};
-
-const CheckoutFormWithStripe = ({ orderDetails }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  return <CheckoutForm orderDetails={orderDetails} isDemoMode={false} stripe={stripe} elements={elements} />;
-};
-
-const CheckoutForm = ({ orderDetails, isDemoMode, stripe, elements }) => {
-  const navigate = useNavigate();
-  const { clearCart } = useContext(CartContext);
-  const { addOrder } = useOrders();
-  const [processing, setProcessing] = useState(false);
-  const [succeeded, setSucceeded] = useState(false);
-  const [cardError, setCardError] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-
-  const completePayment = async (paymentMethod = 'Demo') => {
-    const order = await addOrder({
-      ...orderDetails,
-      deliveryAddress: orderDetails.address,
-      deliveryType: orderDetails.deliveryOption || 'delivery',
-      customer: {
-        name: customerName,
-        email: customerEmail,
-        phone: customerPhone,
-      },
-      paymentMethodId: isDemoMode ? 'demo_pm_123' : 'pm_stripe',
-      paymentMethod,
-    });
-    setSucceeded(true);
-    setProcessing(false);
-    clearCart();
-    toast.success('Payment successful! Order placed.');
-    setTimeout(() => {
-      navigate('/order-success', { state: { order } });
-    }, 2000);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
-      toast.error('Please fill in all customer details');
-      return;
-    }
-
-    setProcessing(true);
-    setCardError('');
-
-    if (isDemoMode) {
-      setTimeout(() => completePayment('Demo'), 1500);
-      return;
-    }
-
-    if (!stripe || !elements) return;
-
-    const cardElement = elements.getElement(CardElement);
-    const { error, paymentMethod } = await stripe.createPaymentMethod({
-      type: 'card',
-      card: cardElement,
-      billing_details: {
-        name: customerName,
-        email: customerEmail,
-        phone: customerPhone,
-      },
-    });
-
-    if (error) {
-      setCardError(error.message);
-      setProcessing(false);
-      return;
-    }
-
-    setTimeout(() => completePayment('Stripe'), 1500);
-  };
-
-  if (succeeded) {
-    return (
-      <div className="checkout-success">
-        <div className="success-animation">
-          <CheckCircle size={80} />
-        </div>
-        <h2>Payment Successful!</h2>
-        <p>Your order has been placed. Redirecting...</p>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="checkout-form">
-      <div className="checkout-form-section">
-        <h3>Customer Details</h3>
-        <div className="form-group">
-          <label>Full Name</label>
-          <input
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="John Doe"
-            required
-          />
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
-              placeholder="john@example.com"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Phone</label>
-            <input
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              placeholder="+1 234 567 890"
-              required
-            />
-          </div>
-        </div>
-      </div>
-
-      {!isDemoMode && (
-        <div className="checkout-form-section">
-          <h3>
-            <CreditCard size={20} />
-            Payment Information
-          </h3>
-          <div className="stripe-card-wrapper">
-            <CardElement options={CARD_ELEMENT_OPTIONS} />
-          </div>
-          {cardError && <div className="card-error">{cardError}</div>}
-          <div className="secure-badge">
-            <Lock size={14} />
-            <span>Secured by Stripe - Your card details are encrypted</span>
-          </div>
-        </div>
-      )}
-
-      {isDemoMode && (
-        <div className="checkout-form-section demo-payment-section">
-          <h3>
-            <CreditCard size={20} />
-            Demo Payment
-          </h3>
-          <div className="demo-payment-info">
-            <p>No Stripe API key configured. Use demo mode to complete a sample payment.</p>
-            <p>Add <code>VITE_STRIPE_PUBLISHABLE_KEY</code> to .env for real payments.</p>
-          </div>
-        </div>
-      )}
-
-      <button
-        type="submit"
-        className="pay-btn"
-        disabled={(!isDemoMode && !stripe) || processing}
-      >
-        {processing ? (
-          <span className="btn-loading">
-            <span className="spinner"></span>
-            Processing Payment...
-          </span>
-        ) : (
-          <span>Pay ${orderDetails?.total?.toFixed(2)}</span>
-        )}
-      </button>
-    </form>
-  );
-};
+const DELIVERY_SLOTS = ['10:00', '12:00', '14:00', '16:00', '18:00'];
 
 const Checkout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const { clearCart } = useContext(CartContext);
+  const { addOrder } = useOrders();
+
   const orderDetails = location.state?.orderDetails;
+
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [useNewAddress, setUseNewAddress] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    label: 'Home',
+    street: orderDetails?.address || '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'Sri Lanka',
+  });
+
+  const [paymentMethod, setPaymentMethod] = useState('cash_on_delivery');
+  const [deliveryDate, setDeliveryDate] = useState(orderDetails?.deliveryDate || '');
+  const [deliverySlot, setDeliverySlot] = useState(orderDetails?.deliveryTime || '');
+  const [notes, setNotes] = useState(orderDetails?.specialInstructions || '');
+  const [placing, setPlacing] = useState(false);
+
+  const addresses = useMemo(() => (
+    Array.isArray(user?.addresses) ? user.addresses : []
+  ), [user?.addresses]);
 
   useEffect(() => {
     if (!user && orderDetails) {
-      navigate('/auth', { state: { from: '/cart' } });
+      navigate('/login', { state: { from: '/cart' } });
     }
   }, [user, orderDetails, navigate]);
+
+  useEffect(() => {
+    if (addresses.length === 0) {
+      setUseNewAddress(true);
+      return;
+    }
+
+    const defaultAddress = addresses.find((addr) => addr.isDefault) || addresses[0];
+    if (defaultAddress?._id && !selectedAddressId) {
+      setSelectedAddressId(defaultAddress._id);
+    }
+  }, [addresses, selectedAddressId]);
+
+  const getTomorrowDate = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  };
+
+  const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+
+  const formatAddressLine = (address) => {
+    if (!address) return '';
+    return [address.street, address.city, address.state, address.zipCode, address.country]
+      .filter(Boolean)
+      .join(', ');
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!orderDetails?.items?.length) {
+      toast.error('Your cart is empty');
+      return;
+    }
+
+    if (!deliveryDate || !deliverySlot) {
+      toast.error('Please select delivery date and time slot');
+      return;
+    }
+
+    const needsNewAddress = useNewAddress || !selectedAddressId;
+    if (needsNewAddress && (!newAddress.street.trim() || !newAddress.city.trim())) {
+      toast.error('Please enter a valid delivery address (street and city)');
+      return;
+    }
+
+    setPlacing(true);
+    try {
+      const payload = {
+        paymentMethod,
+        deliveryType: orderDetails.deliveryOption || 'delivery',
+        deliveryDate,
+        deliverySlot,
+        notes,
+        tax: orderDetails.tax,
+        shipping: orderDetails.shipping,
+      };
+
+      if (needsNewAddress) {
+        payload.address = newAddress;
+        payload.saveAddress = saveAddress;
+      } else {
+        payload.addressId = selectedAddressId;
+      }
+
+      const response = await addOrder(payload);
+      const createdOrder = response?.order || response;
+
+      await clearCart();
+
+      const orderForSuccess = {
+        ...createdOrder,
+        id: createdOrder.id || createdOrder.orderId,
+        status: createdOrder.status || createdOrder.orderStatus,
+        total: createdOrder.total ?? createdOrder.totalAmount,
+        deliveryTime: createdOrder.deliveryTime || createdOrder.deliverySlot,
+      };
+
+      toast.success('Order placed successfully!');
+      navigate('/order-success', { state: { order: orderForSuccess } });
+    } catch (err) {
+      const stockIssue = err?.data?.stockIssues?.[0];
+      if (stockIssue) {
+        toast.error(`${stockIssue.name || 'Item'} has only ${stockIssue.availableStock} in stock`);
+      } else {
+        toast.error(err.message || 'Failed to place order');
+      }
+    } finally {
+      setPlacing(false);
+    }
+  };
 
   if (!orderDetails) {
     return (
@@ -232,9 +150,7 @@ const Checkout = () => {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
     <div className="checkout-page">
@@ -245,36 +161,193 @@ const Checkout = () => {
         </button>
 
         <div className="checkout-header">
-          <ShieldCheck size={32} />
-          <h1>Secure Checkout</h1>
-          <p>Complete your payment to place your order</p>
+          <Home size={32} />
+          <h1>Checkout</h1>
+          <p>Confirm delivery details and payment method</p>
         </div>
 
         <div className="checkout-layout">
           <div className="checkout-left">
-            {stripePromise ? (
-              <Elements stripe={stripePromise}>
-                <CheckoutFormWithStripe orderDetails={orderDetails} />
-              </Elements>
-            ) : (
-              <CheckoutForm orderDetails={orderDetails} isDemoMode={true} stripe={null} elements={null} />
-            )}
+            <div className="checkout-form-section">
+              <h3><MapPin size={18} /> Delivery Address</h3>
+
+              {addresses.length > 0 && (
+                <div className="address-card-list">
+                  {addresses.map((address) => (
+                    <button
+                      type="button"
+                      key={address._id}
+                      className={`address-card ${selectedAddressId === address._id && !useNewAddress ? 'selected' : ''}`}
+                      onClick={() => {
+                        setUseNewAddress(false);
+                        setSelectedAddressId(address._id);
+                      }}
+                    >
+                      <strong>{address.label || 'Address'}</strong>
+                      <span>{formatAddressLine(address)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <label className="checkout-inline-note">
+                <input
+                  type="checkbox"
+                  checked={useNewAddress}
+                  onChange={(e) => setUseNewAddress(e.target.checked)}
+                />
+                Use a new address
+              </label>
+
+              {useNewAddress && (
+                <div className="address-grid">
+                  <div className="form-group">
+                    <label>Label</label>
+                    <input
+                      value={newAddress.label}
+                      onChange={(e) => setNewAddress((prev) => ({ ...prev, label: e.target.value }))}
+                      placeholder="Home / Work"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Street *</label>
+                    <input
+                      value={newAddress.street}
+                      onChange={(e) => setNewAddress((prev) => ({ ...prev, street: e.target.value }))}
+                      placeholder="Street address"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>City *</label>
+                    <input
+                      value={newAddress.city}
+                      onChange={(e) => setNewAddress((prev) => ({ ...prev, city: e.target.value }))}
+                      placeholder="City"
+                      required
+                    />
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>State</label>
+                      <input
+                        value={newAddress.state}
+                        onChange={(e) => setNewAddress((prev) => ({ ...prev, state: e.target.value }))}
+                        placeholder="State"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>ZIP Code</label>
+                      <input
+                        value={newAddress.zipCode}
+                        onChange={(e) => setNewAddress((prev) => ({ ...prev, zipCode: e.target.value }))}
+                        placeholder="ZIP"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Country</label>
+                    <input
+                      value={newAddress.country}
+                      onChange={(e) => setNewAddress((prev) => ({ ...prev, country: e.target.value }))}
+                      placeholder="Country"
+                    />
+                  </div>
+
+                  <label className="checkout-inline-note">
+                    <input
+                      type="checkbox"
+                      checked={saveAddress}
+                      onChange={(e) => setSaveAddress(e.target.checked)}
+                    />
+                    Save this address to profile
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="checkout-form-section">
+              <h3><CreditCard size={18} /> Payment Method</h3>
+              <div className="checkout-radio-group">
+                <label className={`checkout-radio-option ${paymentMethod === 'online' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="online"
+                    checked={paymentMethod === 'online'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  />
+                  <div>
+                    <strong><CreditCard size={16} /> Online Payment</strong>
+                    <p>Pay now using your card or gateway</p>
+                  </div>
+                </label>
+
+                <label className={`checkout-radio-option ${paymentMethod === 'cash_on_delivery' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="cash_on_delivery"
+                    checked={paymentMethod === 'cash_on_delivery'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  />
+                  <div>
+                    <strong><Wallet size={16} /> Cash on Delivery</strong>
+                    <p>Pay when your order is delivered</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="checkout-form-section">
+              <h3><Calendar size={18} /> Delivery Schedule</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Delivery Date *</label>
+                  <input
+                    type="date"
+                    value={deliveryDate}
+                    onChange={(e) => setDeliveryDate(e.target.value)}
+                    min={getTomorrowDate()}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Delivery Slot *</label>
+                  <select
+                    value={deliverySlot}
+                    onChange={(e) => setDeliverySlot(e.target.value)}
+                  >
+                    <option value="">Select slot</option>
+                    {DELIVERY_SLOTS.map((slot) => (
+                      <option key={slot} value={slot}>{slot}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Additional Notes</label>
+                <textarea
+                  rows="3"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Any special instructions for the order"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="checkout-right">
             <div className="checkout-summary-card">
               <h3>Order Summary</h3>
               <div className="checkout-items-list">
-                {orderDetails.items.map(item => (
-                  <div key={item.id} className="checkout-item">
-                    <img src={item.image} alt={item.name} className="checkout-item-img" />
+                {orderDetails.items.map((item) => (
+                  <div key={item.id || item._id} className="checkout-item">
+                    <img src={item.image} alt={item.name || item.productName} className="checkout-item-img" />
                     <div className="checkout-item-info">
-                      <span className="checkout-item-name">{item.name}</span>
+                      <span className="checkout-item-name">{item.name || item.productName}</span>
                       <span className="checkout-item-qty">x{item.quantity}</span>
                     </div>
-                    <span className="checkout-item-price">
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </span>
+                    <span className="checkout-item-price">{formatCurrency(item.price * item.quantity)}</span>
                   </div>
                 ))}
               </div>
@@ -282,49 +355,42 @@ const Checkout = () => {
               <div className="checkout-summary-rows">
                 <div className="checkout-summary-row">
                   <span>Subtotal</span>
-                  <span>${orderDetails.subtotal.toFixed(2)}</span>
+                  <span>{formatCurrency(orderDetails.subtotal)}</span>
                 </div>
                 <div className="checkout-summary-row">
-                  <span>Tax (8%)</span>
-                  <span>${orderDetails.tax.toFixed(2)}</span>
+                  <span>Tax</span>
+                  <span>{formatCurrency(orderDetails.tax)}</span>
                 </div>
                 <div className="checkout-summary-row">
                   <span>Shipping</span>
-                  <span>${orderDetails.shipping.toFixed(2)}</span>
+                  <span>{formatCurrency(orderDetails.shipping)}</span>
                 </div>
                 <div className="checkout-summary-row total">
                   <span>Total</span>
-                  <span>${orderDetails.total.toFixed(2)}</span>
+                  <span>{formatCurrency(orderDetails.total)}</span>
                 </div>
               </div>
+
+              <button type="button" className="pay-btn" onClick={handlePlaceOrder} disabled={placing}>
+                {placing ? 'Placing Order...' : 'Place Order'}
+              </button>
             </div>
 
             <div className="checkout-delivery-info">
-              <h4>Delivery Details</h4>
-              <p><strong>Type:</strong> {orderDetails.deliveryOption === 'delivery' ? 'Home Delivery' : 'Takeaway'}</p>
-              <p><strong>Date:</strong> {orderDetails.deliveryDate}</p>
-              <p><strong>Time:</strong> {orderDetails.deliveryTime}</p>
-              {orderDetails.address && <p><strong>Address:</strong> {orderDetails.address}</p>}
+              <h4>Selected Preferences</h4>
+              <p><strong>Payment:</strong> {paymentMethod === 'online' ? 'Online Payment' : 'Cash on Delivery'}</p>
+              <p><strong>Date:</strong> {deliveryDate || '-'}</p>
+              <p><strong>Slot:</strong> {deliverySlot || '-'}</p>
+              <p><strong>Delivery Type:</strong> {orderDetails.deliveryOption === 'takeaway' ? 'Takeaway' : 'Delivery'}</p>
             </div>
 
-            {stripePromise && (
-              <div className="checkout-test-info">
-                <Cake size={16} />
-                <div>
-                  <strong>Test Mode</strong>
-                  <p>Use card number <code>4242 4242 4242 4242</code> with any future date and CVC.</p>
-                </div>
+            <div className="checkout-test-info">
+              <Clock size={16} />
+              <div>
+                <strong>Checkout Validation</strong>
+                <p>Cart and stock are re-validated on the server before creating your order.</p>
               </div>
-            )}
-            {!stripePromise && (
-              <div className="checkout-test-info demo-mode">
-                <Cake size={16} />
-                <div>
-                  <strong>Demo Mode</strong>
-                  <p>Sample payment - no card required. Add Stripe key to .env for real payments.</p>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

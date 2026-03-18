@@ -1,688 +1,304 @@
-import React, { useState, useEffect } from 'react';
-import AdminBackHeader from '../../components/admin/AdminBackHeader';
-import { 
-  Package, Search, Filter, Download, Plus, Edit, 
-  Trash2, AlertCircle, CheckCircle, XCircle, Eye,
-  TrendingUp, TrendingDown, BarChart3, RefreshCw
-} from 'lucide-react';
-import { toast } from 'react-toastify';
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import AdminLayout from './AdminLayout';
 import { inventoryApi } from '../../api/api';
-import { exportToCSV } from '../../utils/exportUtils';
-import './AdminInventory.css';
+import { Search, Edit, WarningAmber, Inventory2 } from '@mui/icons-material';
+import { toast } from 'react-toastify';
+import './AdminDashboard.css';
+
+const getStatusBadge = (status) => {
+  if (status === 'out-of-stock') return 'danger';
+  if (status === 'low-stock') return 'warning';
+  return 'success';
+};
+
+const toTitle = (value = '') => value
+  .split('-')
+  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+  .join(' ');
+
+const calcSummary = (items = []) => ({
+  totalProducts: items.length,
+  lowStockItems: items.filter((item) => item.stockStatus === 'low-stock').length,
+  outOfStockItems: items.filter((item) => item.stockStatus === 'out-of-stock').length,
+});
 
 const AdminInventory = () => {
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [inventoryItems, setInventoryItems] = useState([]);
+  const [items, setItems] = useState([]);
+  const [summary, setSummary] = useState({ totalProducts: 0, lowStockItems: 0, outOfStockItems: 0 });
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const [stockTarget, setStockTarget] = useState(null);
+  const [stockValue, setStockValue] = useState('0');
+  const [thresholdValue, setThresholdValue] = useState('10');
+  const [savingStock, setSavingStock] = useState(false);
 
   useEffect(() => {
-    const params = {};
-    if (searchQuery) params.search = searchQuery;
-    if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
-    inventoryApi.getAll(params)
-      .then(setInventoryItems)
-      .catch(() => setInventoryItems([]))
-      .finally(() => setLoading(false));
-  }, [searchQuery, categoryFilter]);
+    const fetchInventory = async () => {
+      try {
+        const data = await inventoryApi.getProductInventory();
+        const inventoryItems = Array.isArray(data) ? data : (data.items || []);
+        setItems(inventoryItems);
+        setSummary(data.summary || calcSummary(inventoryItems));
+      } catch (err) {
+        console.error(err);
+        toast.error('Failed to load inventory');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const stats = {
-    totalItems: inventoryItems.length,
-    lowStock: inventoryItems.filter(i => (i.status === 'low-stock') || (i.stock > 0 && i.stock <= (i.minStock || 0))).length,
-    outOfStock: inventoryItems.filter(i => (i.status === 'out-of-stock') || i.stock === 0).length,
-    totalValue: `Rs ${inventoryItems.reduce((s, i) => s + (Number(i.price) || 0) * (i.stock || 0), 0).toLocaleString()}`,
-    categories: [...new Set(inventoryItems.map(i => i.category))].length,
+    fetchInventory();
+  }, []);
+
+  const filtered = useMemo(() => items.filter((item) => {
+    if (search && !(item.productName || '').toLowerCase().includes(search.toLowerCase())) return false;
+    if (statusFilter !== 'all' && item.stockStatus !== statusFilter) return false;
+    return true;
+  }), [items, search, statusFilter]);
+
+  const openStockEditor = (item) => {
+    setStockTarget(item);
+    setStockValue(String(item.currentStock ?? 0));
+    setThresholdValue(String(item.lowStockThreshold ?? 10));
   };
 
-  const handleViewItem = (item) => {
-    setSelectedItem(item);
-    setIsModalOpen(true);
+  const closeStockEditor = () => {
+    setStockTarget(null);
+    setStockValue('0');
+    setThresholdValue('10');
+    setSavingStock(false);
   };
 
-  const handleEditItem = (item) => {
-    setSelectedItem(item);
-    setIsModalOpen(true);
-  };
+  const handleStockUpdate = async () => {
+    if (!stockTarget) return;
 
-  const handleDeleteItem = async (itemId) => {
-    if (!window.confirm(`Are you sure you want to delete item ${itemId}?`)) return;
+    const nextStock = Number.parseInt(stockValue, 10);
+    const nextThreshold = Number.parseInt(thresholdValue, 10);
+
+    if (!Number.isFinite(nextStock) || nextStock < 0) {
+      toast.error('Stock must be a non-negative number');
+      return;
+    }
+
+    if (!Number.isFinite(nextThreshold) || nextThreshold < 0) {
+      toast.error('Low stock threshold must be a non-negative number');
+      return;
+    }
+
+    setSavingStock(true);
     try {
-      await inventoryApi.delete(itemId);
-      setInventoryItems(prev => prev.filter(i => i.id !== itemId && String(i._id) !== String(itemId)));
-      toast.success(`Item ${itemId} deleted successfully`);
-      if (selectedItem?.id === itemId) setIsModalOpen(false);
+      const response = await inventoryApi.updateProductStock(stockTarget.id || stockTarget._id, {
+        stockQuantity: nextStock,
+        lowStockThreshold: nextThreshold,
+      });
+
+      const updatedItem = response.item || response;
+      const nextItems = items.map((item) => (
+        (item.id || item._id) === (updatedItem.id || updatedItem._id) ? updatedItem : item
+      ));
+
+      setItems(nextItems);
+      setSummary(calcSummary(nextItems));
+      toast.success('Stock updated');
+      closeStockEditor();
     } catch (err) {
-      toast.error(err.message || 'Failed to delete item');
+      toast.error(err.message || 'Failed to update stock');
+      setSavingStock(false);
     }
   };
 
-  const handleRestock = (item) => {
-    const quantity = prompt(`Enter quantity to restock ${item.name}:`, item.minStock);
-    if (quantity) {
-      toast.success(`Restocked ${quantity} ${item.unit} of ${item.name}`);
-    }
-  };
-
-  const getStatusBadge = (status, stock, minStock) => {
-    let badgeClass = '';
-    let icon = null;
-    let text = '';
-    
-    if (status === 'out-of-stock' || stock === 0) {
-      badgeClass = 'status-out-of-stock';
-      icon = <XCircle size={12} />;
-      text = 'Out of Stock';
-    } else if (status === 'low-stock' || stock <= minStock) {
-      badgeClass = 'status-low-stock';
-      icon = <AlertCircle size={12} />;
-      text = 'Low Stock';
-    } else {
-      badgeClass = 'status-in-stock';
-      icon = <CheckCircle size={12} />;
-      text = 'In Stock';
-    }
-    
-    return (
-      <span className={`inventory-status-badge ${badgeClass}`}>
-        {icon}
-        <span style={{ marginLeft: '4px' }}>{text}</span>
-      </span>
-    );
-  };
-
-  const getStockProgress = (stock, minStock, maxStock) => {
-    const percentage = (stock / maxStock) * 100;
-    let color = '#10B981'; // Green
-    
-    if (stock <= minStock) {
-      color = stock === 0 ? '#EF4444' : '#F59E0B'; // Red for out, Orange for low
-    } else if (stock > maxStock * 0.8) {
-      color = '#3B82F6'; // Blue for high stock
-    }
-    
-    return (
-      <div className="stock-progress">
-        <div 
-          className="stock-progress-bar" 
-          style={{ 
-            width: `${Math.min(percentage, 100)}%`,
-            backgroundColor: color
-          }}
-        />
-        <div className="stock-progress-text">
-          {stock} / {maxStock} {selectedItem?.unit}
-        </div>
-      </div>
-    );
-  };
+  const totalNeedsRestock = summary.lowStockItems + summary.outOfStockItems;
 
   return (
-    <div className="inventory-page">
-      <AdminBackHeader />
-      {/* Page Header */}
-      <div className="inventory-header">
-        <div className="inventory-header-left">
-          <div className="inventory-header-icon">
-            <Package size={24} />
-          </div>
-          <h1>Inventory Management</h1>
+    <AdminLayout>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">Inventory Management</h1>
+          <p className="admin-page-subtitle">Monitor product stock and low stock alerts</p>
         </div>
-        <div className="inventory-header-stats">
-          <div className="inventory-stat-card">
-            <div className="inventory-stat-label">Total Items</div>
-            <div className="inventory-stat-value">{stats.totalItems}</div>
-          </div>
-          <div className="inventory-stat-card">
-            <div className="inventory-stat-label">Low Stock</div>
-            <div className="inventory-stat-value" style={{ color: '#F59E0B' }}>
-              {stats.lowStock}
-            </div>
-          </div>
-          <div className="inventory-stat-card">
-            <div className="inventory-stat-label">Out of Stock</div>
-            <div className="inventory-stat-value" style={{ color: '#EF4444' }}>
-              {stats.outOfStock}
-            </div>
-          </div>
-          <div className="inventory-stat-card">
-            <div className="inventory-stat-label">Total Value</div>
-            <div className="inventory-stat-value" style={{ color: '#10B981' }}>
-              {stats.totalValue}
-            </div>
-          </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <span className="admin-badge admin-badge-info">
+            <Inventory2 style={{ fontSize: 14, marginRight: 4 }} />
+            {summary.totalProducts} Products
+          </span>
+          <span className="admin-badge admin-badge-warning">
+            <WarningAmber style={{ fontSize: 14, marginRight: 4 }} />
+            {totalNeedsRestock} Need Restock
+          </span>
         </div>
       </div>
 
-
-      {/* Toolbar */}
-      <div className="inventory-toolbar">
-        <div className="inventory-search">
-          <Search size={18} />
-          <input type="text" placeholder="Search by name, SKU, category..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+      {totalNeedsRestock > 0 && (
+        <div className="admin-table-container admin-animate-in" style={{ marginBottom: 16, borderColor: 'rgba(245, 158, 11, 0.35)' }}>
+          <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 8, color: '#fbbf24', fontSize: 14, fontWeight: 600 }}>
+            <WarningAmber style={{ fontSize: 18 }} />
+            Low Stock Alert: {totalNeedsRestock} products are below safe stock level
+          </div>
         </div>
-        <div className="inventory-actions">
-          <button className="inventory-btn secondary">
-            <Filter size={16} />
-            Filter
-          </button>
-          <button 
-            className="inventory-btn secondary"
-            onClick={() => {
-              const cols = [
-                { key: 'id', label: 'Item ID' },
-                { key: 'name', label: 'Product Name' },
-                { key: 'category', label: 'Category' },
-                { key: 'sku', label: 'SKU' },
-                { key: 'stock', label: 'Current Stock' },
-                { key: 'minStock', label: 'Min Stock' },
-                { key: 'maxStock', label: 'Max Stock' },
-                { key: 'price', label: 'Price' },
-                { key: 'status', label: 'Status' },
-                { key: 'supplier', label: 'Supplier' },
-              ];
-              exportToCSV(inventoryItems, 'inventory', cols);
-              toast.success('Inventory exported');
-            }}
-          >
-            <Download size={16} />
-            Export
-          </button>
-          <select className="inventory-btn secondary" style={{padding: '8px 16px'}} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="all">All Categories</option>
-            <option value="Dry Ingredients">Dry Ingredients</option>
-            <option value="Dairy">Dairy</option>
-            <option value="Flavorings">Flavorings</option>
-            <option value="Add-ins">Add-ins</option>
-            <option value="Leavening Agents">Leavening Agents</option>
-          </select>
-          <button 
-            className="inventory-btn primary"
-            onClick={() => setIsAddModalOpen(true)}
-          >
-            <Plus size={16} />
-            Add New Item
-          </button>
+      )}
+
+      <div className="admin-table-container admin-animate-in">
+        <div className="admin-table-header">
+          <div className="admin-search">
+            <span className="admin-search-icon"><Search /></span>
+            <input
+              placeholder="Search product..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="admin-filters">
+            {['all', 'in-stock', 'low-stock', 'out-of-stock'].map((status) => (
+              <button
+                key={status}
+                className={`admin-filter-chip${statusFilter === status ? ' active' : ''}`}
+                onClick={() => setStatusFilter(status)}
+              >
+                {status === 'all' ? 'All' : toTitle(status)}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-   
-
-      {/* Inventory Table */}
-      <div className="inventory-table-container">
-        <h3 className="inventory-table-title">
-          <Package size={18} />
-          Current Inventory
-        </h3>
-        
-        <table className="inventory-table">
-          <thead>
-            <tr>
-              <th>Item ID</th>
-              <th>Product Name</th>
-              <th>Category</th>
-              <th>SKU</th>
-              <th>Current Stock</th>
-              <th>Min/Max</th>
-              <th>Price</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>Loading...</td></tr>
-            ) : inventoryItems.length === 0 ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>No inventory items. Run <code>npm run seed:inventory</code> in backend or add items.</td></tr>
-            ) : (
-            inventoryItems.map((item) => (
-              <tr key={item.id || item._id}>
-                <td>
-                  <div style={{ fontWeight: '600', color: 'var(--primary)' }}>
-                    {item.id}
-                  </div>
-                </td>
-                <td>
-                  <div className="inventory-item-name">
-                    <div style={{ fontWeight: '600' }}>{item.name}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                      Supplier: {item.supplier}
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span className="category-badge">
-                    {item.category}
-                  </span>
-                </td>
-                <td>{item.sku}</td>
-                <td>
-                  <div className="stock-info">
-                    <div style={{ fontWeight: '600', fontSize: '16px' }}>
-                      {item.stock} {item.unit}
-                    </div>
-                    <div className="stock-trend">
-                      {item.stock > item.minStock * 1.5 ? (
-                        <TrendingUp size={12} color="#10B981" />
-                      ) : (
-                        <TrendingDown size={12} color="#EF4444" />
-                      )}
-                      <span style={{ 
-                        fontSize: '12px', 
-                        color: item.stock > item.minStock * 1.5 ? '#10B981' : '#EF4444',
-                        marginLeft: '4px'
-                      }}>
-                        {item.lastRestock}
-                      </span>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div className="stock-limits">
-                    <div>Min: {item.minStock}</div>
-                    <div>Max: {item.maxStock}</div>
-                  </div>
-                </td>
-                <td>
-                  <div style={{ fontWeight: '600', color: 'var(--success)' }}>
-                    {typeof item.price === 'number' ? `Rs ${item.price}` : (item.price || 'Rs 0')}
-                  </div>
-                </td>
-                <td>
-                  {getStatusBadge(item.status, item.stock, item.minStock)}
-                </td>
-                <td>
-                  <div className="inventory-actions-cell">
-                    <button 
-                      className="inventory-action-btn"
-                      onClick={() => handleViewItem(item)}
-                      title="View Details"
-                    >
-                      <Eye size={14} />
-                    </button>
-                    <button 
-                      className="inventory-action-btn secondary"
-                      onClick={() => handleEditItem(item)}
-                      title="Edit"
-                    >
-                      <Edit size={14} />
-                    </button>
-                    <button 
-                      className="inventory-action-btn danger"
-                      onClick={() => handleDeleteItem(item.id || item._id)}
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    {item.status === 'low-stock' || item.status === 'out-of-stock' ? (
-                      <button 
-                        className="inventory-action-btn primary"
-                        onClick={() => handleRestock(item)}
-                        title="Restock"
-                      >
-                        <RefreshCw size={14} />
-                      </button>
-                    ) : null}
-                  </div>
-                </td>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {['Product Name', 'Current Stock', 'Low Stock Status', 'Threshold', 'Update Stock'].map((header) => (
+                  <th
+                    key={header}
+                    style={{
+                      padding: '12px 20px',
+                      textAlign: 'left',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      color: 'var(--admin-text-secondary)',
+                      borderBottom: '1px solid var(--admin-border)',
+                    }}
+                  >
+                    {header}
+                  </th>
+                ))}
               </tr>
-            ))
-            )}
-          </tbody>
-        </table>
-
-        {/* Pagination */}
-        <div className="inventory-pagination">
-          <button className="pagination-btn disabled">«</button>
-          <button className="pagination-btn active">1</button>
-          <button className="pagination-btn">2</button>
-          <button className="pagination-btn">3</button>
-          <button className="pagination-btn">»</button>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={5} style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>Loading...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={5} style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>No products found</td></tr>
+              ) : filtered.map((item) => (
+                <tr
+                  key={item._id || item.id}
+                  style={{ borderBottom: '1px solid var(--admin-border)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600 }}>{item.productName}</td>
+                  <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600 }}>{item.currentStock}</td>
+                  <td style={{ padding: '14px 20px' }}>
+                    <span className={`admin-badge admin-badge-${getStatusBadge(item.stockStatus)}`}>
+                      {toTitle(item.stockStatus)}
+                    </span>
+                  </td>
+                  <td style={{ padding: '14px 20px', fontSize: 13 }}>{item.lowStockThreshold}</td>
+                  <td style={{ padding: '14px 20px' }}>
+                    <button
+                      className="admin-btn admin-btn-outline"
+                      style={{ padding: 6 }}
+                      onClick={() => openStockEditor(item)}
+                    >
+                      <Edit fontSize="small" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Item Details Modal */}
-      {isModalOpen && selectedItem && (
-        <div className="modal-overlay">
-          <div className="inventory-modal-content">
-            <button onClick={() => setIsModalOpen(false)} className="modal-close">×</button>
-            
-            <div className="inventory-modal-header">
-              <h2 className="inventory-modal-title">{selectedItem.name}</h2>
-              {getStatusBadge(selectedItem.status, selectedItem.stock, selectedItem.minStock)}
+      {stockTarget && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: 1200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+          onClick={closeStockEditor}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              background: '#111827',
+              border: '1px solid var(--admin-border)',
+              borderRadius: 12,
+              padding: 20,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: 0, marginBottom: 12 }}>Update Stock</h3>
+            <p style={{ margin: 0, marginBottom: 16, color: 'var(--admin-text-secondary)' }}>{stockTarget.productName}</p>
+
+            <div style={{ display: 'grid', gap: 12 }}>
+              <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+                Current Stock
+                <input
+                  type="number"
+                  min="0"
+                  value={stockValue}
+                  onChange={(e) => setStockValue(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--admin-border)',
+                    background: '#1f2937',
+                    color: '#ffffff',
+                  }}
+                />
+              </label>
+
+              <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+                Low Stock Threshold
+                <input
+                  type="number"
+                  min="0"
+                  value={thresholdValue}
+                  onChange={(e) => setThresholdValue(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--admin-border)',
+                    background: '#1f2937',
+                    color: '#ffffff',
+                  }}
+                />
+              </label>
             </div>
 
-            <div className="inventory-details-grid">
-              {/* Basic Info */}
-              <div className="inventory-detail-section">
-                <h3 className="inventory-detail-title">
-                  <Package size={18} />
-                  Basic Information
-                </h3>
-                <div className="inventory-info-grid">
-                  <div className="inventory-info-item">
-                    <div className="inventory-info-label">Item ID</div>
-                    <div className="inventory-info-value">{selectedItem.id}</div>
-                  </div>
-                  <div className="inventory-info-item">
-                    <div className="inventory-info-label">SKU</div>
-                    <div className="inventory-info-value">{selectedItem.sku}</div>
-                  </div>
-                  <div className="inventory-info-item">
-                    <div className="inventory-info-label">Category</div>
-                    <div className="inventory-info-value">{selectedItem.category}</div>
-                  </div>
-                  <div className="inventory-info-item">
-                    <div className="inventory-info-label">Unit</div>
-                    <div className="inventory-info-value">{selectedItem.unit}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Stock Information */}
-              <div className="inventory-detail-section">
-                <h3 className="inventory-detail-title">
-                  <BarChart3 size={18} />
-                  Stock Information
-                </h3>
-                <div className="stock-details">
-                  <div className="stock-numbers">
-                    <div className="stock-number">
-                      <div className="stock-number-label">Current Stock</div>
-                      <div className="stock-number-value">{selectedItem.stock} {selectedItem.unit}</div>
-                    </div>
-                    <div className="stock-number">
-                      <div className="stock-number-label">Minimum Stock</div>
-                      <div className="stock-number-value" style={{ color: '#F59E0B' }}>
-                        {selectedItem.minStock} {selectedItem.unit}
-                      </div>
-                    </div>
-                    <div className="stock-number">
-                      <div className="stock-number-label">Maximum Stock</div>
-                      <div className="stock-number-value" style={{ color: '#3B82F6' }}>
-                        {selectedItem.maxStock} {selectedItem.unit}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="stock-progress-container">
-                    <div className="stock-progress-label">Stock Level</div>
-                    {getStockProgress(selectedItem.stock, selectedItem.minStock, selectedItem.maxStock)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Supplier & Location */}
-              <div className="inventory-detail-section">
-                <h3 className="inventory-detail-title">Supplier & Location</h3>
-                <div className="inventory-info-grid">
-                  <div className="inventory-info-item">
-                    <div className="inventory-info-label">Supplier</div>
-                    <div className="inventory-info-value">{selectedItem.supplier}</div>
-                  </div>
-                  <div className="inventory-info-item">
-                    <div className="inventory-info-label">Location</div>
-                    <div className="inventory-info-value">{selectedItem.location}</div>
-                  </div>
-                  <div className="inventory-info-item">
-                    <div className="inventory-info-label">Last Restock</div>
-                    <div className="inventory-info-value">{selectedItem.lastRestock}</div>
-                  </div>
-                  <div className="inventory-info-item">
-                    <div className="inventory-info-label">Price</div>
-                    <div className="inventory-info-value" style={{ color: 'var(--success)', fontWeight: '600' }}>
-                      {selectedItem.price}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="inventory-modal-actions">
-              <button 
-                className="inventory-btn secondary"
-                onClick={() => handleEditItem(selectedItem)}
-              >
-                <Edit size={16} />
-                Edit Item
-              </button>
-              <button 
-                className="inventory-btn primary"
-                onClick={() => handleRestock(selectedItem)}
-                disabled={selectedItem.stock >= selectedItem.maxStock}
-              >
-               
-                Restock Item
-              </button>
-              <button 
-                className="inventory-btn danger"
-                onClick={() => handleDeleteItem(selectedItem.id)}
-              >
-                <Trash2 size={16} />
-                Delete Item
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+              <button className="admin-btn admin-btn-outline" onClick={closeStockEditor} disabled={savingStock}>Cancel</button>
+              <button className="admin-btn admin-btn-primary" onClick={handleStockUpdate} disabled={savingStock}>
+                {savingStock ? 'Updating...' : 'Update Stock'}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Add Item Modal (Basic Structure) */}
-    {/* Add Item Modal */}
-{isAddModalOpen && (
-  <div className="modal-overlay">
-    <div className="inventory-modal-content">
-      <button onClick={() => setIsAddModalOpen(false)} className="modal-close">×</button>
-      
-      <div className="inventory-modal-header">
-        <h2 className="inventory-modal-title">
-          <Plus size={24} />
-          Add New Inventory Item
-        </h2>
-      </div>
-
-      <form 
-        className="add-item-form"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const form = e.target;
-          const stock = parseInt(form.initialStock?.value || 0, 10);
-          const minStock = parseInt(form.minStock?.value || 0, 10);
-          const maxStock = parseInt(form.maxStock?.value || 0, 10);
-          const price = parseFloat(form.price?.value || 0);
-          const status = stock === 0 ? 'out-of-stock' : stock <= minStock ? 'low-stock' : 'in-stock';
-          try {
-            const item = await inventoryApi.create({
-              name: form.itemName?.value,
-              category: form.category?.value,
-              sku: form.sku?.value,
-              unit: form.unit?.value,
-              stock,
-              minStock,
-              maxStock,
-              price,
-              supplier: form.supplier?.value || '',
-              location: form.location?.value || '',
-              lastRestock: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-              status,
-            });
-            setInventoryItems(prev => [item, ...prev]);
-            toast.success('New item added successfully!');
-            setIsAddModalOpen(false);
-            form.reset();
-          } catch (err) {
-            toast.error(err.message || 'Failed to add item');
-          }
-        }}
-      >
-        <div className="form-section">
-          <h3 className="form-section-title">Basic Information</h3>
-          <div className="form-grid">
-            <div className="form-group">
-              <label htmlFor="itemName">Item Name *</label>
-              <input
-                type="text"
-                id="itemName"
-                placeholder="e.g., All-Purpose Flour"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="category">Category *</label>
-              <select id="category" required>
-                <option value="">Select Category</option>
-                <option value="Dry Ingredients">Dry Ingredients</option>
-                <option value="Dairy">Dairy</option>
-                <option value="Flavorings">Flavorings</option>
-                <option value="Add-ins">Add-ins</option>
-                <option value="Leavening Agents">Leavening Agents</option>
-                <option value="Toppings">Toppings</option>
-                <option value="Packaging">Packaging</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="sku">SKU (Stock Keeping Unit) *</label>
-              <input
-                type="text"
-                id="sku"
-                placeholder="e.g., FLR-AP-5KG"
-                required
-              />
-              <small className="form-hint">Unique identifier for this item</small>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="unit">Unit of Measurement *</label>
-              <select id="unit" required>
-                <option value="">Select Unit</option>
-                <option value="kg">Kilograms (kg)</option>
-                <option value="g">Grams (g)</option>
-                <option value="liters">Liters (L)</option>
-                <option value="ml">Milliliters (ml)</option>
-                <option value="cartons">Cartons</option>
-                <option value="pieces">Pieces</option>
-                <option value="boxes">Boxes</option>
-                <option value="packs">Packs</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h3 className="form-section-title">Stock Information</h3>
-          <div className="form-grid">
-            <div className="form-group">
-              <label htmlFor="initialStock">Initial Stock Quantity</label>
-              <input
-                type="number"
-                id="initialStock"
-                placeholder="e.g., 50"
-                min="0"
-                defaultValue="0"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="minStock">Minimum Stock Level *</label>
-              <input
-                type="number"
-                id="minStock"
-                placeholder="e.g., 20"
-                min="0"
-                required
-              />
-              <small className="form-hint">Alert when stock falls below this</small>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="maxStock">Maximum Stock Level *</label>
-              <input
-                type="number"
-                id="maxStock"
-                placeholder="e.g., 100"
-                min="0"
-                required
-              />
-              <small className="form-hint">Maximum storage capacity</small>
-            </div>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h3 className="form-section-title">Pricing & Supplier</h3>
-          <div className="form-grid">
-            <div className="form-group">
-              <label htmlFor="price">Price per Unit *</label>
-              <div className="price-input">
-                <span className="currency">Rs</span>
-                <input
-                  type="number"
-                  id="price"
-                  placeholder="e.g., 120"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="supplier">Supplier</label>
-              <input
-                type="text"
-                id="supplier"
-                placeholder="e.g., Bakery Supplies Co."
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="location">Storage Location</label>
-              <input
-                type="text"
-                id="location"
-                placeholder="e.g., Aisle 1, Shelf B"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h3 className="form-section-title">Additional Information</h3>
-          <div className="form-group">
-            <label htmlFor="description">Description</label>
-            <textarea
-              id="description"
-              placeholder="Add any notes or descriptions about this item..."
-              rows="3"
-            />
-          </div>
-        </div>
-
-        <div className="form-actions">
-          <button
-            type="button"
-            className="inventory-btn secondary"
-            onClick={() => setIsAddModalOpen(false)}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="inventory-btn primary"
-          >
-            <Plus size={16} />
-            Add Item
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-    </div>
+    </AdminLayout>
   );
 };
 
 export default AdminInventory;
+

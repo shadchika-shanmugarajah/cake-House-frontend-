@@ -9,7 +9,7 @@ import './Cart.css';
 const BULK_ORDER_THRESHOLD = 12;
 
 const Cart = () => {
-  const { cartItems, removeFromCart, updateQuantity, clearCart } = useContext(CartContext);
+  const { cartItems, removeFromCart, updateQuantity, clearCart, syncing } = useContext(CartContext);
   const { user } = useContext(AuthContext);
   const [deliveryOption, setDeliveryOption] = useState('delivery');
   const [deliveryDate, setDeliveryDate] = useState('');
@@ -19,71 +19,76 @@ const Cart = () => {
   const navigate = useNavigate();
 
   const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const isBulkOrder = totalQuantity > BULK_ORDER_THRESHOLD;
+  const hasSingleItemBulkQty = cartItems.some((item) => Number(item.quantity) >= BULK_ORDER_THRESHOLD);
+  const isBulkOrder = totalQuantity >= BULK_ORDER_THRESHOLD || hasSingleItemBulkQty;
 
-  const calculateSubtotal = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const calculateSubtotal = () => cartItems.reduce((t, i) => t + i.price * i.quantity, 0);
+  const calculateTax = () => calculateSubtotal() * 0.08;
+  const calculateShipping = () => (deliveryOption === 'delivery' ? 350.00 : 0);
+  const calculateTotal = () => calculateSubtotal() + calculateTax() + calculateShipping();
+
+  // Get item identifier (works for both API _id and local id)
+  const getItemId = (item) => item._id || item.id;
+  const getItemName = (item) => item.productName || item.name || 'Product';
+  const getItemCategory = (item) => item.category || '';
+  const getItemImage = (item) => item.image || '';
+
+  const handleDecrease = async (item) => {
+    try {
+      await updateQuantity(getItemId(item), item.quantity - 1);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update cart');
+    }
   };
 
-  const calculateTax = () => {
-    return calculateSubtotal() * 0.08;
+  const handleIncrease = async (item) => {
+    if (item.stock && item.quantity >= item.stock) {
+      toast.warning(`Only ${item.stock} available`);
+      return;
+    }
+
+    try {
+      await updateQuantity(getItemId(item), item.quantity + 1);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update cart');
+    }
   };
 
-  const calculateShipping = () => {
-    return deliveryOption === 'delivery' ? 5.00 : 0;
+  const handleRemove = async (item) => {
+    try {
+      await removeFromCart(getItemId(item));
+    } catch (err) {
+      toast.error(err.message || 'Failed to remove item');
+    }
   };
 
-  const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax() + calculateShipping();
+  const handleClear = async () => {
+    try {
+      await clearCart();
+    } catch (err) {
+      toast.error(err.message || 'Failed to clear cart');
+    }
   };
 
   const handleCheckout = () => {
-    if (cartItems.length === 0) {
-      toast.error('Your cart is empty');
-      return;
-    }
-
-    if (!user) {
-      toast.info('Please login or register to proceed to payment');
-      navigate('/auth', { state: { from: '/cart' } });
-      return;
-    }
-
-    if (deliveryOption === 'delivery' && !address.trim()) {
-      toast.error('Please enter delivery address');
-      return;
-    }
-
-    if (!deliveryDate || !deliveryTime) {
-      toast.error('Please select delivery/pickup date and time');
-      return;
-    }
+    if (cartItems.length === 0) return toast.error('Your cart is empty');
+    if (!user) { toast.info('Please login to proceed'); navigate('/login', { state: { from: '/cart' } }); return; }
+    if (deliveryOption === 'delivery' && !address.trim()) return toast.error('Please enter delivery address');
+    if (!deliveryDate || !deliveryTime) return toast.error('Please select date and time');
 
     const orderDetails = {
       items: cartItems,
-      deliveryOption,
-      deliveryDate,
-      deliveryTime,
-      address,
-      specialInstructions,
-      subtotal: calculateSubtotal(),
-      tax: calculateTax(),
-      shipping: calculateShipping(),
-      total: calculateTotal(),
-      totalQuantity,
+      deliveryOption, deliveryDate, deliveryTime, address, specialInstructions,
+      subtotal: calculateSubtotal(), tax: calculateTax(),
+      shipping: calculateShipping(), total: calculateTotal(), totalQuantity,
     };
 
-    if (isBulkOrder) {
-      navigate('/bulk-order', { state: { orderDetails } });
-    } else {
-      navigate('/checkout', { state: { orderDetails } });
-    }
+    navigate(isBulkOrder ? '/bulk-order' : '/checkout', { state: { orderDetails } });
   };
 
   const getTomorrowDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
   };
 
   if (cartItems.length === 0) {
@@ -93,9 +98,7 @@ const Cart = () => {
           <div className="empty-cart">
             <h2>Your cart is empty</h2>
             <p>Add some delicious cakes to your cart!</p>
-            <Link to="/products" className="continue-shopping-btn">
-              Continue Shopping
-            </Link>
+            <Link to="/products" className="continue-shopping-btn">Continue Shopping</Link>
           </div>
         </div>
       </div>
@@ -116,8 +119,7 @@ const Cart = () => {
               <AlertTriangle size={24} />
               <div>
                 <h3>Bulk Order Detected ({totalQuantity} pieces)</h3>
-                <p>Orders with more than {BULK_ORDER_THRESHOLD} pieces are considered bulk orders. 
-                   You'll need to select a preferred date and time. Your order will be reviewed by our team for availability confirmation.</p>
+                <p>Orders with {BULK_ORDER_THRESHOLD} or more pieces are treated as bulk orders and require admin approval.</p>
               </div>
             </div>
             <Package size={32} className="bulk-order-banner-icon" />
@@ -129,35 +131,29 @@ const Cart = () => {
             <div className="cart-items-section">
               <h2>Your Items ({cartItems.length})</h2>
               {cartItems.map(item => (
-                <div key={item.id} className="cart-item">
-                  <img src={item.image} alt={item.name} className="cart-item-image" />
+                <div key={getItemId(item)} className="cart-item">
+                  <img src={getItemImage(item)} alt={getItemName(item)} className="cart-item-image" />
                   <div className="cart-item-info">
-                    <h3>{item.name}</h3>
-                    <p className="cart-item-category">{item.category}</p>
-                    <p className="cart-item-price">${item.price.toFixed(2)}</p>
+                    <h3>{getItemName(item)}</h3>
+                    {getItemCategory(item) && <p className="cart-item-category">{getItemCategory(item)}</p>}
+                    <p className="cart-item-price">Rs. {item.price.toLocaleString()}</p>
                     <div className="cart-item-quantity">
-                      <button 
-                        className="quantity-btn" 
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      >
+                      <button className="quantity-btn" onClick={() => handleDecrease(item)} disabled={syncing}>
                         <Minus size={14} />
                       </button>
                       <span className="quantity-display">{item.quantity}</span>
-                      <button 
-                        className="quantity-btn" 
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      <button
+                        className="quantity-btn"
+                        onClick={() => handleIncrease(item)}
+                        disabled={syncing || (item.stock && item.quantity >= item.stock)}
                       >
                         <Plus size={14} />
                       </button>
                     </div>
                   </div>
                   <div className="cart-item-total">
-                    <span>${(item.price * item.quantity).toFixed(2)}</span>
-                    <button 
-                      onClick={() => removeFromCart(item.id)} 
-                      className="remove-btn"
-                      title="Remove item"
-                    >
+                    <span>Rs. {(item.price * item.quantity).toLocaleString()}</span>
+                    <button onClick={() => handleRemove(item)} className="remove-btn" title="Remove" disabled={syncing}>
                       <Trash2 size={18} />
                     </button>
                   </div>
@@ -169,38 +165,17 @@ const Cart = () => {
               <h2>Delivery Options</h2>
               <div className="delivery-options">
                 <label className={`delivery-option ${deliveryOption === 'delivery' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="delivery"
-                    value="delivery"
-                    checked={deliveryOption === 'delivery'}
-                    onChange={(e) => setDeliveryOption(e.target.value)}
-                  />
+                  <input type="radio" name="delivery" value="delivery" checked={deliveryOption === 'delivery'} onChange={(e) => setDeliveryOption(e.target.value)} />
                   <div className="option-content">
                     <Truck size={24} />
-                    <div>
-                      <h3>Delivery</h3>
-                      <p>We'll deliver to your address</p>
-                      <span className="option-price">$5.00</span>
-                    </div>
+                    <div><h3>Delivery</h3><p>We'll deliver to your address</p><span className="option-price">Rs. 350</span></div>
                   </div>
                 </label>
-
                 <label className={`delivery-option ${deliveryOption === 'takeaway' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="delivery"
-                    value="takeaway"
-                    checked={deliveryOption === 'takeaway'}
-                    onChange={(e) => setDeliveryOption(e.target.value)}
-                  />
+                  <input type="radio" name="delivery" value="takeaway" checked={deliveryOption === 'takeaway'} onChange={(e) => setDeliveryOption(e.target.value)} />
                   <div className="option-content">
                     <Store size={24} />
-                    <div>
-                      <h3>Takeaway</h3>
-                      <p>Pick up from our store</p>
-                      <span className="option-price">FREE</span>
-                    </div>
+                    <div><h3>Takeaway</h3><p>Pick up from our store</p><span className="option-price">FREE</span></div>
                   </div>
                 </label>
               </div>
@@ -210,13 +185,7 @@ const Cart = () => {
                   <h3>Delivery Address</h3>
                   <div className="input-with-icon">
                     <Home size={20} />
-                    <textarea
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Enter your full delivery address"
-                      rows="3"
-                      required
-                    />
+                    <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Enter your full delivery address" rows="3" required />
                   </div>
                 </div>
               )}
@@ -226,21 +195,11 @@ const Cart = () => {
                 <div className="datetime-inputs">
                   <div className="input-with-icon">
                     <Calendar size={20} />
-                    <input
-                      type="date"
-                      value={deliveryDate}
-                      onChange={(e) => setDeliveryDate(e.target.value)}
-                      min={getTomorrowDate()}
-                      required
-                    />
+                    <input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} min={getTomorrowDate()} required />
                   </div>
                   <div className="input-with-icon">
                     <Clock size={20} />
-                    <select
-                      value={deliveryTime}
-                      onChange={(e) => setDeliveryTime(e.target.value)}
-                      required
-                    >
+                    <select value={deliveryTime} onChange={(e) => setDeliveryTime(e.target.value)} required>
                       <option value="">Select Time</option>
                       <option value="10:00">10:00 AM</option>
                       <option value="12:00">12:00 PM</option>
@@ -254,66 +213,39 @@ const Cart = () => {
 
               <div className="instructions-section">
                 <h3>Special Instructions</h3>
-                <textarea
-                  value={specialInstructions}
-                  onChange={(e) => setSpecialInstructions(e.target.value)}
-                  placeholder="Any special requests or instructions for your order..."
-                  rows="3"
-                />
+                <textarea value={specialInstructions} onChange={(e) => setSpecialInstructions(e.target.value)} placeholder="Any special requests or instructions..." rows="3" />
               </div>
             </div>
           </div>
 
           <div className="cart-summary">
             <h2>Order Summary</h2>
-            
             <div className="summary-details">
-              <div className="summary-row">
-                <span>Subtotal ({totalQuantity} items)</span>
-                <span>${calculateSubtotal().toFixed(2)}</span>
-              </div>
-              
-              <div className="summary-row">
-                <span>Tax (8%)</span>
-                <span>${calculateTax().toFixed(2)}</span>
-              </div>
-              
-              <div className="summary-row">
-                <span>Shipping</span>
-                <span>${calculateShipping().toFixed(2)}</span>
-              </div>
-              
-              <div className="summary-row total">
-                <span>Total</span>
-                <span>${calculateTotal().toFixed(2)}</span>
-              </div>
+              <div className="summary-row"><span>Subtotal ({totalQuantity} items)</span><span>Rs. {calculateSubtotal().toLocaleString()}</span></div>
+              <div className="summary-row"><span>Tax (8%)</span><span>Rs. {calculateTax().toFixed(0)}</span></div>
+              <div className="summary-row"><span>Shipping</span><span>Rs. {calculateShipping().toLocaleString()}</span></div>
+              <div className="summary-row total"><span>Total</span><span>Rs. {calculateTotal().toLocaleString()}</span></div>
             </div>
 
             {isBulkOrder ? (
               <div className="order-note bulk-note">
                 <p>📦 This is a <strong>bulk order</strong> ({totalQuantity} pieces)</p>
                 <p>📋 Your order will be sent for admin approval</p>
-                <p>📞 We'll contact you once availability is confirmed</p>
+                <p>📞 We'll contact you once confirmed</p>
               </div>
             ) : (
               <div className="order-note">
-                <p>🕒 Orders require 24 hours advance notice for preparation</p>
-                <p>📞 We'll contact you to confirm your order</p>
+                <p>🕒 Orders require 24 hours advance notice</p>
+                <p>📞 We'll confirm your order shortly</p>
               </div>
             )}
 
             <div className="checkout-actions">
-              <button onClick={handleCheckout} className={`checkout-btn ${isBulkOrder ? 'bulk-checkout-btn' : ''}`}>
+              <button onClick={handleCheckout} className={`checkout-btn ${isBulkOrder ? 'bulk-checkout-btn' : ''}`} disabled={syncing}>
                 {isBulkOrder ? 'Request Bulk Order' : 'Proceed to Checkout'}
               </button>
-              
-              <button onClick={clearCart} className="clear-cart-btn">
-                Clear Cart
-              </button>
-              
-              <Link to="/products" className="continue-shopping-btn">
-                Continue Shopping
-              </Link>
+              <button onClick={handleClear} className="clear-cart-btn" disabled={syncing}>Clear Cart</button>
+              <Link to="/products" className="continue-shopping-btn">Continue Shopping</Link>
             </div>
           </div>
         </div>

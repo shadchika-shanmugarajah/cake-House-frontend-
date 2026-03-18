@@ -542,3 +542,120 @@
     flex-direction: column;
   }
 }
+
+/* Modal used by current AdminOrders implementation */
+.admin-order-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.admin-order-modal {
+  width: min(980px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid var(--admin-border);
+  background: #0f172a;
+  color: var(--admin-text-primary);
+  padding: 18px;
+}
+
+.admin-order-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-order-modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.admin-order-modal-header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--admin-text-secondary);
+}
+
+.admin-order-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border);
+  background: transparent;
+  color: var(--admin-text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.admin-order-status-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.admin-order-status-meta {
+  font-size: 12px;
+  color: var(--admin-text-secondary);
+}
+
+.admin-order-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-order-detail-card {
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.admin-order-detail-card h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.admin-order-detail-card p {
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+.admin-order-items {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-order-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.admin-order-item-row p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--admin-text-secondary);
+}
+
+.admin-order-item-price {
+  font-weight: 700;
+}

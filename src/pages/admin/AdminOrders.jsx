@@ -1,418 +1,354 @@
-// src/pages/admin/AdminOrders.jsx
-import React, { useState } from 'react';
-import { useOrders } from '../../context/OrderContext';
-import AdminBackHeader from '../../components/admin/AdminBackHeader';
-import { 
-  Eye, ShoppingCart, Filter, Search, Download, 
-  Cake, User, MapPin, Phone, Mail, Calendar, 
-  Package, CheckCircle, XCircle, Clock, Truck
-} from 'lucide-react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import AdminLayout from './AdminLayout';
+import { ordersApi } from '../../api/api';
+import { Search, Visibility, Close } from '@mui/icons-material';
 import { toast } from 'react-toastify';
-import { exportToCSV } from '../../utils/exportUtils';
-import './AdminOrders.css'; // Import separate CSS
+import './AdminDashboard.css';
+import './AdminOrders.css';
+
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'ready', label: 'Ready' },
+  { value: 'out_for_delivery', label: 'Out for Delivery' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
+const statusColors = {
+  pending: 'warning',
+  in_progress: 'info',
+  ready: 'info',
+  out_for_delivery: 'info',
+  delivered: 'success',
+  cancelled: 'danger',
+};
+
+const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+const formatDateTime = (value) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString();
+};
+const formatOrderStatusLabel = (status) => {
+  const normalized = String(status || 'pending');
+  if (normalized === 'pending') return 'Pending';
+  if (normalized === 'packed') return 'Ready';
+  return normalized.replaceAll('_', ' ');
+};
+const formatPaymentMethod = (method) => {
+  if (!method) return '—';
+  if (method === 'cash_on_delivery') return 'Cash on Delivery';
+  if (method === 'online') return 'Online Payment';
+  return String(method).replaceAll('_', ' ');
+};
+const formatAddress = (address = {}) => (
+  [address.street, address.city, address.state, address.zipCode, address.country]
+    .filter(Boolean)
+    .join(', ')
+);
 
 const AdminOrders = () => {
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const { orders: contextOrders, markOrdersAsViewed } = useOrders();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState('');
 
-  React.useEffect(() => {
-    markOrdersAsViewed?.();
-  }, [markOrdersAsViewed]);
+  const loadOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await ordersApi.getAll();
+      const list = Array.isArray(data) ? data : (data.orders || []);
+      setOrders(list);
+      setSelectedOrderId((prev) => prev || (list[0] ? (list[0].orderId || list[0].id) : ''));
 
-  const formatOrderFromContext = (o) => ({
-    id: o.id,
-    total: o.total,
-    customer: o.customer?.name || 'Guest',
-    date: o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—',
-    amount: `Rs ${(o.total || 0).toLocaleString()}`,
-    status: o.status || 'completed',
-    isNew: o.unread ?? o.isNew,
-    items: (o.items || []).map(i => ({
-      name: i.name,
-      quantity: i.quantity,
-      price: `Rs ${((i.price || 0) * (i.quantity || 1)).toLocaleString()}`,
-    })),
-    customerPhone: o.customer?.phone || '—',
-    customerEmail: o.customer?.email || '—',
-    deliveryAddress: o.deliveryAddress || o.address || '—',
-    deliveryType: o.deliveryOption === 'delivery' ? 'Home Delivery' : 'Pickup',
-    paymentMethod: o.paymentMethod || 'Stripe',
-    specialInstructions: o.specialInstructions || '',
-  });
+      try { await ordersApi.markViewed(); } catch { /* ignore */ }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load orders');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const orders = contextOrders.map(formatOrderFromContext);
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
-  const handleViewOrder = (order) => {
-    setSelectedOrder(order);
-    setIsModalOpen(true);
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const status = order.status || order.orderStatus;
+      if (statusFilter !== 'all' && status !== statusFilter) return false;
+
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        (order.orderId || order.id || '').toLowerCase().includes(q) ||
+        (order.customer?.name || '').toLowerCase().includes(q) ||
+        (order.customer?.email || '').toLowerCase().includes(q)
+      );
+    });
+  }, [orders, search, statusFilter]);
+
+  const selectedOrder = useMemo(() => {
+    if (!selectedOrderId) return null;
+    return orders.find((order) => (order.orderId || order.id) === selectedOrderId) || null;
+  }, [orders, selectedOrderId]);
+
+  const openOrderDetails = (orderId) => {
+    setSelectedOrderId(orderId);
+    setDetailsOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedOrder(null);
-  };
-
-  const updateOrderStatus = (orderId, newStatus) => {
-    toast.success(`Order ${orderId} status updated to ${newStatus}`);
-    closeModal();
-  };
-
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case 'pending': return <Clock size={16} />;
-      case 'processing': return <Package size={16} />;
-      case 'completed': return <CheckCircle size={16} />;
-      case 'delivered': return <Truck size={16} />;
-      case 'cancelled': return <XCircle size={16} />;
-      default: return <Clock size={16} />;
+  const handleStatusUpdate = async (orderId, nextStatus) => {
+    setUpdatingOrderId(orderId);
+    try {
+      const updated = await ordersApi.updateStatus(orderId, nextStatus);
+      setOrders((prev) => prev.map((order) => (
+        (order.orderId || order.id) === orderId ? { ...order, ...updated } : order
+      )));
+      toast.success(`Order ${orderId} updated to ${nextStatus.replaceAll('_', ' ')}`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update order status');
+    } finally {
+      setUpdatingOrderId('');
     }
   };
 
-  const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || parseFloat(String(o.amount).replace(/[^0-9.]/g, '')) || 0), 0);
-  const stats = {
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    processing: orders.filter(o => o.status === 'processing').length,
-    completed: orders.filter(o => o.status === 'completed' || o.status === 'delivered').length,
-    revenue: `Rs ${totalRevenue.toLocaleString()}`
-  };
-
   return (
-    <div className="orders-page">
-      <AdminBackHeader />
-      {/* Page Header */}
-      <div className="orders-header">
-        <div className="orders-header-left">
-          <div className="orders-header-icon">
-            <ShoppingCart size={24} />
-          </div>
-          <h1>Orders Management</h1>
-        </div>
-        <div className="orders-header-stats">
-          <div className="order-stat-card">
-            <div className="order-stat-label">Total Orders</div>
-            <div className="order-stat-value">{stats.total}</div>
-          </div>
-          <div className="order-stat-card">
-            <div className="order-stat-label">Pending</div>
-            <div className="order-stat-value">{stats.pending}</div>
-          </div>
-          <div className="order-stat-card">
-            <div className="order-stat-label">Processing</div>
-            <div className="order-stat-value">{stats.processing}</div>
-          </div>
-          <div className="order-stat-card">
-            <div className="order-stat-label">Revenue</div>
-            <div className="order-stat-value">{stats.revenue}</div>
-          </div>
+    <AdminLayout>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">Orders</h1>
+          <p className="admin-page-subtitle">View details and manage normal order status updates</p>
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <div className="orders-toolbar">
-        <div className="orders-search">
-          <Search size={18} />
-          <input type="text" placeholder="Search orders by ID, customer..." />
-        </div>
-        <div className="orders-filter-actions">
-          <button className="order-action-btn secondary">
-            <Filter size={16} />
-            Filter
-          </button>
-          <button 
-            className="order-action-btn secondary"
-            onClick={() => {
-              const cols = [
-                { key: 'id', label: 'Order ID' },
-                { key: 'customer', label: 'Customer' },
-                { key: 'date', label: 'Date' },
-                { key: 'amount', label: 'Amount' },
-                { key: 'status', label: 'Status' },
-                { key: 'customerPhone', label: 'Phone' },
-                { key: 'customerEmail', label: 'Email' },
-                { key: 'deliveryAddress', label: 'Address' },
-              ];
-              exportToCSV(orders, 'orders', cols);
-              toast.success('Orders exported');
-            }}
-          >
-            <Download size={16} />
-            Export
-          </button>
-          <select className="order-action-btn secondary" style={{padding: '8px 16px'}}>
-            <option>All Status</option>
-            <option>Pending</option>
-            <option>Processing</option>
-            <option>Completed</option>
-            <option>Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Orders Table */}
-      <div className="orders-table-container">
-        <h3 className="orders-table-title">
-          <ShoppingCart size={18} />
-          Recent Orders
-        </h3>
-        
-        <table className="orders-table">
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Customer</th>
-              <th>Items</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((order) => (
-              <tr key={order.id}>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontWeight: '600', color: 'var(--primary)' }}>{order.id}</span>
-                    {order.isNew && (
-                      <span className="order-new-badge">NEW</span>
-                    )}
-                  </div>
-                </td>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <User size={14} />
-                    {order.customer}
-                  </div>
-                </td>
-                <td>
-                  <div className="order-items-cell">
-                    {order.items.map((item, index) => (
-                      <div key={index} className="order-item">
-                        <Cake size={14} className="order-item-icon" />
-                        <span className="order-item-name">{item.name}</span>
-                        <span className="order-item-qty">x{item.quantity}</span>
-                      </div>
-                    ))}
-                  </div>
-                </td>
-                <td>{order.date}</td>
-                <td>
-                  <div style={{ fontWeight: '600', color: 'var(--success)' }}>
-                    {order.amount}
-                  </div>
-                </td>
-                <td>
-                  <span className={`order-status-badge status-${order.status}`}>
-                    {getStatusIcon(order.status)}
-                    <span style={{ marginLeft: '6px' }}>{order.status}</span>
-                  </span>
-                </td>
-                <td>
-                  <div className="order-actions">
-                    <button 
-                      className="order-action-btn"
-                      onClick={() => handleViewOrder(order)}
-                    >
-                      <Eye size={14} />
-                      View
-                    </button>
-                  </div>
-                </td>
-              </tr>
+      <div className="admin-table-container admin-animate-in" style={{ marginBottom: 20 }}>
+        <div className="admin-table-header">
+          <div className="admin-search">
+            <span className="admin-search-icon"><Search /></span>
+            <input
+              placeholder="Search by order ID, customer name, or email"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="admin-filters">
+            {['all', 'pending', 'in_progress', 'ready', 'out_for_delivery', 'delivered', 'cancelled'].map((status) => (
+              <button
+                key={status}
+                className={`admin-filter-chip${statusFilter === status ? ' active' : ''}`}
+                onClick={() => setStatusFilter(status)}
+              >
+                {status === 'all'
+                  ? 'All'
+                  : (status === 'pending'
+                    ? 'Pending'
+                    : status.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()))}
+              </button>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
 
-        {/* Pagination */}
-        <div className="orders-pagination">
-          <button className="pagination-btn disabled">«</button>
-          <button className="pagination-btn active">1</button>
-          <button className="pagination-btn">2</button>
-          <button className="pagination-btn">3</button>
-          <button className="pagination-btn">»</button>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {['Order ID', 'Customer', 'Items', 'Total', 'Status', 'Update Status', 'Actions'].map((header) => (
+                  <th
+                    key={header}
+                    style={{
+                      padding: '12px 20px',
+                      textAlign: 'left',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      color: 'var(--admin-text-secondary)',
+                      borderBottom: '1px solid var(--admin-border)',
+                    }}
+                  >
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={7} style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>Loading orders...</td></tr>
+              ) : filteredOrders.length === 0 ? (
+                <tr><td colSpan={7} style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>No orders found</td></tr>
+              ) : filteredOrders.map((order) => {
+                const orderId = order.orderId || order.id;
+                const status = order.status || order.orderStatus;
+                const isUpdating = updatingOrderId === orderId;
+                const isDelivered = status === 'delivered';
+                const isCancelled = status === 'cancelled';
+                const statusLabel = formatOrderStatusLabel(status || 'unknown');
+                const cancelledLabel = order.cancelledBy === 'admin'
+                  ? 'Canceled by admin'
+                  : 'Canceled by customer';
+
+                return (
+                  <tr
+                    key={order._id || orderId}
+                    style={{
+                      borderBottom: '1px solid var(--admin-border)',
+                      background: selectedOrderId === orderId ? 'rgba(255,255,255,0.02)' : 'transparent',
+                    }}
+                  >
+                    <td style={{ padding: '14px 20px', fontSize: 14, color: 'var(--admin-accent)', fontWeight: 600 }}>{orderId}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 14 }}>
+                      <div>{order.customer?.name || '—'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--admin-text-secondary)' }}>{order.customer?.email || '—'}</div>
+                    </td>
+                    <td style={{ padding: '14px 20px', fontSize: 14 }}>{order.items?.length || 0}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600 }}>{formatCurrency(order.total || order.totalAmount)}</td>
+                    <td style={{ padding: '14px 20px' }}>
+                      <span className={`admin-badge admin-badge-${statusColors[status] || 'info'}`}>
+                        {statusLabel}
+                      </span>
+                      {isCancelled && (
+                        <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4, fontWeight: 600 }}>
+                          {cancelledLabel}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: '14px 20px', minWidth: 180 }}>
+                      <select
+                        value={status}
+                        onChange={(e) => handleStatusUpdate(orderId, e.target.value)}
+                        disabled={isUpdating || isDelivered || isCancelled}
+                        style={{
+                          width: '100%',
+                          padding: '8px 10px',
+                          background: '#111827',
+                          color: '#ffffff',
+                          border: '1px solid var(--admin-border)',
+                          borderRadius: 8,
+                          opacity: (isUpdating || isDelivered || isCancelled) ? 0.7 : 1,
+                        }}
+                      >
+                        {STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={{ padding: '14px 20px' }}>
+                      <button
+                        onClick={() => openOrderDetails(orderId)}
+                        style={{
+                          border: '1px solid var(--admin-border)',
+                          background: 'transparent',
+                          color: 'var(--admin-text-primary)',
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <Visibility style={{ fontSize: 16 }} /> View
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Order Details Modal */}
-      {isModalOpen && selectedOrder && (
-        <div className="modal-overlay">
-          <div className="order-modal-content">
-            <button onClick={closeModal} className="modal-close">×</button>
-            
-            <div className="order-modal-header">
-              <h2 className="order-modal-title">{selectedOrder.id}</h2>
-              <div className="order-total">{selectedOrder.amount}</div>
+      {detailsOpen && selectedOrder && (
+        <div className="admin-order-modal-overlay" onClick={() => setDetailsOpen(false)}>
+          <div className="admin-order-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="admin-order-modal-header">
+              <div>
+                <h3>Order {selectedOrder.orderId || selectedOrder.id}</h3>
+                <p>Created: {formatDateTime(selectedOrder.createdAt)}</p>
+              </div>
+              <button className="admin-order-modal-close" onClick={() => setDetailsOpen(false)} aria-label="Close details">
+                <Close />
+              </button>
             </div>
 
-            <div className="order-details-grid">
-              {/* Customer Details */}
-              <div className="order-detail-section">
-                <h3 className="order-detail-title">
-                  <User size={18} />
-                  Customer Details
-                </h3>
-                <div className="modal-info-grid">
-                  <div className="modal-info-item">
-                    <User size={16} />
-                    <div>
-                      <div className="modal-info-label">Name</div>
-                      <div className="modal-info-value">{selectedOrder.customer}</div>
-                    </div>
-                  </div>
-                  <div className="modal-info-item">
-                    <Phone size={16} />
-                    <div>
-                      <div className="modal-info-label">Phone</div>
-                      <div className="modal-info-value">{selectedOrder.customerPhone}</div>
-                    </div>
-                  </div>
-                  <div className="modal-info-item">
-                    <Mail size={16} />
-                    <div>
-                      <div className="modal-info-label">Email</div>
-                      <div className="modal-info-value">{selectedOrder.customerEmail}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Order Details */}
-              <div className="order-detail-section">
-                <h3 className="order-detail-title">
-                  <Calendar size={18} />
-                  Order Details
-                </h3>
-                <div className="modal-info-grid">
-                  <div className="modal-info-item">
-                    <Calendar size={16} />
-                    <div>
-                      <div className="modal-info-label">Date</div>
-                      <div className="modal-info-value">{selectedOrder.date}</div>
-                    </div>
-                  </div>
-                  <div className="modal-info-item">
-                    <MapPin size={16} />
-                    <div>
-                      <div className="modal-info-label">Delivery Type</div>
-                      <div className="modal-info-value">{selectedOrder.deliveryType}</div>
-                    </div>
-                  </div>
-                  <div className="modal-info-item">
-                    <ShoppingCart size={16} />
-                    <div>
-                      <div className="modal-info-label">Payment Method</div>
-                      <div className="modal-info-value">{selectedOrder.paymentMethod}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="admin-order-status-line">
+              <span className={`admin-badge admin-badge-${statusColors[selectedOrder.status || selectedOrder.orderStatus] || 'info'}`}>
+                {formatOrderStatusLabel(selectedOrder.status || selectedOrder.orderStatus)}
+              </span>
+              <span className="admin-order-status-meta">Last updated: {formatDateTime(selectedOrder.updatedAt)}</span>
             </div>
 
-            {/* Delivery Address */}
-            {selectedOrder.deliveryType === 'Home Delivery' && (
-              <div className="order-detail-section">
-                <h3 className="order-detail-title">
-                  <MapPin size={18} />
-                  Delivery Address
-                </h3>
-                <div className="modal-info-item">
-                  <MapPin size={16} />
-                  <div className="modal-info-value">{selectedOrder.deliveryAddress}</div>
-                </div>
-              </div>
-            )}
+            <div className="admin-order-detail-grid">
+              <section className="admin-order-detail-card">
+                <h4>Customer</h4>
+                <p><strong>Name:</strong> {selectedOrder.customer?.name || '—'}</p>
+                <p><strong>Email:</strong> {selectedOrder.customer?.email || '—'}</p>
+                <p><strong>Phone:</strong> {selectedOrder.customer?.phone || '—'}</p>
+              </section>
 
-            {/* Order Items */}
-            <div className="order-detail-section">
-              <h3 className="order-detail-title">
-                <Cake size={18} />
-                Order Items
-              </h3>
-              <div className="order-items-list">
-                {selectedOrder.items.map((item, index) => (
-                  <div key={index} className="order-item-card">
-                    <div className="order-item-image">
-                      <Cake size={24} />
+              <section className="admin-order-detail-card">
+                <h4>Delivery</h4>
+                <p><strong>Date:</strong> {selectedOrder.deliveryDate ? formatDateTime(selectedOrder.deliveryDate) : '—'}</p>
+                <p><strong>Slot:</strong> {selectedOrder.deliverySlot || selectedOrder.deliveryTime || '—'}</p>
+                <p><strong>Type:</strong> {selectedOrder.deliveryType || 'delivery'}</p>
+              </section>
+
+              <section className="admin-order-detail-card">
+                <h4>Payment</h4>
+                <p><strong>Method:</strong> {formatPaymentMethod(selectedOrder.paymentMethod)}</p>
+                <p><strong>Status:</strong> {formatOrderStatusLabel(selectedOrder.paymentStatus || 'pending')}</p>
+              </section>
+
+              <section className="admin-order-detail-card">
+                <h4>Amount</h4>
+                <p><strong>Subtotal:</strong> {formatCurrency(selectedOrder.subtotal)}</p>
+                <p><strong>Tax:</strong> {formatCurrency(selectedOrder.tax)}</p>
+                <p><strong>Shipping:</strong> {formatCurrency(selectedOrder.shipping)}</p>
+                <p><strong>Discount:</strong> {formatCurrency(selectedOrder.discount)}</p>
+                <p><strong>Total:</strong> {formatCurrency(selectedOrder.total || selectedOrder.totalAmount)}</p>
+              </section>
+            </div>
+
+            <section className="admin-order-detail-card">
+              <h4>Address</h4>
+              <p>{formatAddress(selectedOrder.address) || '—'}</p>
+            </section>
+
+            <section className="admin-order-detail-card">
+              <h4>Items ({selectedOrder.items?.length || 0})</h4>
+              <div className="admin-order-items">
+                {(selectedOrder.items || []).map((item) => (
+                  <div key={item._id || item.id || `${item.productId}-${item.name}`} className="admin-order-item-row">
+                    <div>
+                      <strong>{item.name || item.productName || 'Product'}</strong>
+                      <p>Qty: {item.quantity || 1}</p>
                     </div>
-                    <div className="order-item-details">
-                      <div className="order-item-name">{item.name}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span className="order-item-price">{item.price}</span>
-                        <span className="order-item-qty">Quantity: {item.quantity}</span>
-                      </div>
-                    </div>
+                    <div className="admin-order-item-price">{formatCurrency((item.price || 0) * (item.quantity || 1))}</div>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
 
-            {/* Special Instructions */}
-            {selectedOrder.specialInstructions && (
-              <div className="order-detail-section">
-                <h3 className="order-detail-title">Special Instructions</h3>
-                <p style={{ color: 'var(--text-primary)', margin: 0 }}>
-                  {selectedOrder.specialInstructions}
-                </p>
-              </div>
+            {(selectedOrder.notes || selectedOrder.cancelReason) && (
+              <section className="admin-order-detail-card">
+                <h4>Additional Details</h4>
+                {selectedOrder.notes && <p><strong>Notes:</strong> {selectedOrder.notes}</p>}
+                {selectedOrder.cancelReason && <p><strong>Cancel Reason:</strong> {selectedOrder.cancelReason}</p>}
+              </section>
             )}
-
-            {/* Status Actions */}
-            <div className="order-status-actions">
-              {selectedOrder.status === 'pending' && (
-                <>
-                  <button 
-                    className="order-action-btn"
-                    onClick={() => updateOrderStatus(selectedOrder.id, 'processing')}
-                  >
-                    <Package size={16} />
-                    Start Processing
-                  </button>
-                  <button 
-                    className="order-action-btn secondary"
-                    onClick={() => updateOrderStatus(selectedOrder.id, 'cancelled')}
-                  >
-                    <XCircle size={16} />
-                    Cancel Order
-                  </button>
-                </>
-              )}
-              
-              {selectedOrder.status === 'processing' && (
-                <>
-                  <button 
-                    className="order-action-btn"
-                    onClick={() => updateOrderStatus(selectedOrder.id, 'completed')}
-                  >
-                    <CheckCircle size={16} />
-                    Mark as Completed
-                  </button>
-                  {selectedOrder.deliveryType === 'Home Delivery' && (
-                    <button 
-                      className="order-action-btn secondary"
-                      onClick={() => updateOrderStatus(selectedOrder.id, 'delivered')}
-                    >
-                      <Truck size={16} />
-                      Mark as Delivered
-                    </button>
-                  )}
-                </>
-              )}
-              
-              <button 
-                className="order-action-btn secondary"
-                onClick={closeModal}
-                style={{ flex: 1 }}
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 };
 
 export default AdminOrders;
+

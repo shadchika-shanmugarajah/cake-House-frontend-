@@ -13,7 +13,7 @@ const OrderSuccess = () => {
     const deliveryDate = order.preferredDate || order.deliveryDate || '—';
     const deliveryTime = order.preferredTime || order.deliveryTime || '—';
     const itemsHtml = (order.items || []).map(item =>
-      `<tr><td>${item.name}</td><td>${item.quantity}</td><td>$${(item.price || 0).toFixed(2)}</td><td>$${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td></tr>`
+      `<tr><td>${item.name}</td><td>${item.quantity}</td><td>LKR ${(item.price || 0).toFixed(2)}</td><td>LKR ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td></tr>`
     ).join('');
     const html = `<!DOCTYPE html>
 <html>
@@ -33,8 +33,8 @@ ${order.customer ? `<p><strong>Customer:</strong> ${order.customer.name}</p><p><
 <p><strong>Delivery Date:</strong> ${deliveryDate}</p>
 <p><strong>Delivery Time:</strong> ${deliveryTime}</p>
 <table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-<p class="total">Total Paid: $${order.total?.toFixed(2) || '0.00'}</p>
-<p><strong>Status:</strong> ${isBulk ? 'Pending Approval' : 'Payment Confirmed'}</p>
+<p class="total">Total Paid: LKR ${order.total?.toFixed(2) || '0.00'}</p>
+<p><strong>Status:</strong> ${isBulk ? 'Awaiting Admin Acceptance' : 'Payment Confirmed'}</p>
 <p style="margin-top:40px;font-size:12px;color:#666">Thank you for your order! — Cake House</p>
 </body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
@@ -133,11 +133,11 @@ ${order.customer ? `<p><strong>Customer:</strong> ${order.customer.name}</p><p><
 
           <div className="success-total-row">
             <span>{isBulk ? 'Estimated Total' : 'Total Paid'}</span>
-            <span className="success-total-amount">${order.total?.toFixed(2)}</span>
+            <span className="success-total-amount">LKR {order.total?.toFixed(2)}</span>
           </div>
 
           <div className="success-status-badge" data-status={order.status}>
-            {isBulk ? 'Pending Admin Approval' : 'Payment Confirmed'}
+            {isBulk ? 'Awaiting Admin Acceptance' : 'Payment Confirmed'}
           </div>
 
           <button onClick={downloadReceipt} className="success-download-btn">

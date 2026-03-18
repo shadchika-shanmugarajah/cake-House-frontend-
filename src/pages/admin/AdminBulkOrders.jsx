@@ -1,418 +1,317 @@
-import React, { useState } from 'react';
-import {
-  Package, Eye, CheckCircle, XCircle, Clock, Calendar,
-  User, Phone, Mail, MapPin, Search, Filter, Cake, AlertCircle
-} from 'lucide-react';
-import { useOrders } from '../../context/OrderContext';
-import AdminBackHeader from '../../components/admin/AdminBackHeader';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import AdminLayout from './AdminLayout';
+import { bulkOrdersApi } from '../../api/api';
+import { Search } from '@mui/icons-material';
 import { toast } from 'react-toastify';
-import './AdminBulkOrders.css';
+import './AdminDashboard.css';
+
+const statusColors = {
+  awaiting_admin_acceptance: 'warning',
+  awaiting_user_payment: 'info',
+  in_progress: 'info',
+  ready: 'info',
+  out_for_delivery: 'info',
+  delivered: 'success',
+  rejected: 'danger',
+};
+
+const normalizeStatus = (order) => {
+  const raw = String(order.approvalStatus || order.status || 'awaiting_admin_acceptance').toLowerCase();
+  if (raw === 'pending' || raw === 'pending_approval') return 'awaiting_admin_acceptance';
+  if (raw === 'approved') return 'awaiting_user_payment';
+  if (raw === 'completed') return 'delivered';
+  return raw;
+};
+const formatStatus = (value) => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
 const AdminBulkOrders = () => {
-  const { bulkOrders, confirmBulkOrder, cancelBulkOrder } = useOrders();
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [updatingId, setUpdatingId] = useState('');
 
-  const filteredOrders = bulkOrders.filter(order => {
-    const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
-    const matchesSearch = searchQuery === '' ||
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
-
-  const handleViewOrder = (order) => {
-    setSelectedOrder(order);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedOrder(null);
-  };
-
-  const handleConfirm = async (orderId) => {
+  const loadOrders = useCallback(async () => {
+    setLoading(true);
     try {
-      await confirmBulkOrder(orderId);
-      toast.success(`Bulk order ${orderId} confirmed! Customer will be notified.`);
-      closeModal();
+      const data = await bulkOrdersApi.getAll();
+      setOrders(Array.isArray(data) ? data : (data.orders || []));
     } catch (err) {
-      toast.error(err.message || 'Failed to confirm order');
+      toast.error(err.message || 'Failed to load bulk orders');
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const handleCancel = async (orderId) => {
-    try {
-      await cancelBulkOrder(orderId);
-      toast.info(`Bulk order ${orderId} has been cancelled.`);
-      closeModal();
-    } catch (err) {
-      toast.error(err.message || 'Failed to cancel order');
-    }
-  };
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'pending_approval': return <Clock size={16} />;
-      case 'confirmed': return <CheckCircle size={16} />;
-      case 'cancelled': return <XCircle size={16} />;
-      default: return <Clock size={16} />;
-    }
-  };
+  useEffect(() => {
+    const poller = setInterval(() => {
+      loadOrders();
+    }, 5000);
 
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case 'pending_approval': return 'Pending Approval';
-      case 'confirmed': return 'Confirmed';
-      case 'cancelled': return 'Cancelled';
-      default: return status;
-    }
-  };
+    return () => clearInterval(poller);
+  }, [loadOrders]);
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric'
+  const filtered = useMemo(() => {
+    return orders.filter((order) => {
+      const status = normalizeStatus(order);
+      const matchesFilter = filter === 'all' || status === filter;
+
+      if (!matchesFilter) return false;
+      if (!search.trim()) return true;
+
+      const query = search.toLowerCase();
+      return (
+        (order.bulkOrderId || order.id || '').toLowerCase().includes(query)
+        || (order.customer?.name || order.customerName || '').toLowerCase().includes(query)
+        || (order.customer?.email || order.customerEmail || '').toLowerCase().includes(query)
+      );
     });
+  }, [orders, filter, search]);
+
+  const applyOrderUpdate = (updatedOrder) => {
+    const normalized = updatedOrder?.order || updatedOrder;
+    setOrders((prev) => prev.map((order) => {
+      const id = order.bulkOrderId || order.id;
+      const updatedId = normalized.bulkOrderId || normalized.id;
+      return id === updatedId ? { ...order, ...normalized } : order;
+    }));
   };
 
-  const formatTime = (time) => {
-    if (!time) return 'N/A';
-    const [h, m] = time.split(':');
-    const hour = parseInt(h);
-    return `${hour > 12 ? hour - 12 : hour}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+  const handleApprove = async (orderId) => {
+    setUpdatingId(orderId);
+    try {
+      const response = await bulkOrdersApi.approve(orderId);
+      applyOrderUpdate(response);
+      toast.success('Bulk order approved');
+    } catch (err) {
+      toast.error(err.message || 'Failed to approve bulk order');
+    } finally {
+      setUpdatingId('');
+    }
   };
 
-  const stats = {
-    total: bulkOrders.length,
-    pending: bulkOrders.filter(o => o.status === 'pending_approval').length,
-    confirmed: bulkOrders.filter(o => o.status === 'confirmed').length,
-    cancelled: bulkOrders.filter(o => o.status === 'cancelled').length,
+  const handleReject = async (orderId) => {
+    setUpdatingId(orderId);
+    try {
+      const response = await bulkOrdersApi.reject(orderId);
+      applyOrderUpdate(response);
+      toast.success('Bulk order rejected');
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject bulk order');
+    } finally {
+      setUpdatingId('');
+    }
+  };
+
+  const handleStatusUpdate = async (orderId, status, successMessage = 'Bulk order status updated') => {
+    setUpdatingId(orderId);
+    try {
+      const response = await bulkOrdersApi.updateStatus(orderId, status);
+      applyOrderUpdate(response);
+      toast.success(successMessage);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update bulk order status');
+    } finally {
+      setUpdatingId('');
+    }
   };
 
   return (
-    <div className="bulk-admin-page">
-      <AdminBackHeader />
-      <div className="bulk-admin-header">
-        <div className="bulk-admin-header-left">
-          <div className="bulk-admin-header-icon">
-            <Package size={24} />
-          </div>
-          <div>
-            <h1>Bulk Orders</h1>
-            <p>Review and manage bulk order requests</p>
-          </div>
-        </div>
-        <div className="bulk-admin-stats">
-          <div className="bulk-stat-card">
-            <div className="bulk-stat-label">Total</div>
-            <div className="bulk-stat-value">{stats.total}</div>
-          </div>
-          <div className="bulk-stat-card pending">
-            <div className="bulk-stat-label">Pending</div>
-            <div className="bulk-stat-value">{stats.pending}</div>
-          </div>
-          <div className="bulk-stat-card confirmed">
-            <div className="bulk-stat-label">Confirmed</div>
-            <div className="bulk-stat-value">{stats.confirmed}</div>
-          </div>
-          <div className="bulk-stat-card cancelled">
-            <div className="bulk-stat-label">Cancelled</div>
-            <div className="bulk-stat-value">{stats.cancelled}</div>
-          </div>
+    <AdminLayout>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">Bulk Orders</h1>
+          <p className="admin-page-subtitle">Review and manage bulk order requests</p>
         </div>
       </div>
 
-      <div className="bulk-admin-toolbar">
-        <div className="bulk-admin-search">
-          <Search size={18} />
-          <input
-            type="text"
-            placeholder="Search by order ID or customer name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="bulk-admin-filters">
-          <Filter size={16} />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="all">All Status</option>
-            <option value="pending_approval">Pending Approval</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
+      <div className="admin-table-container admin-animate-in">
+        <div className="admin-table-header">
+          <div className="admin-search">
+            <span className="admin-search-icon"><Search /></span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search by bulk ID, customer name, or email"
+            />
+          </div>
 
-      {filteredOrders.length === 0 ? (
-        <div className="bulk-admin-empty">
-          <Package size={60} />
-          <h3>No bulk orders found</h3>
-          <p>
-            {bulkOrders.length === 0
-              ? 'Bulk order requests from customers will appear here.'
-              : 'No orders match your current filters.'}
-          </p>
+          <div className="admin-filters">
+            {['all', 'awaiting_admin_acceptance', 'awaiting_user_payment', 'in_progress', 'ready', 'out_for_delivery', 'delivered', 'rejected'].map((status) => (
+              <button
+                key={status}
+                className={`admin-filter-chip${filter === status ? ' active' : ''}`}
+                onClick={() => setFilter(status)}
+              >
+                {status === 'all' ? 'All' : formatStatus(status)}
+              </button>
+            ))}
+          </div>
         </div>
-      ) : (
-        <div className="bulk-admin-table-container">
-          <table className="bulk-admin-table">
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th>Order ID</th>
-                <th>Customer</th>
-                <th>Items</th>
-                <th>Preferred Date</th>
-                <th>Total Qty</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Actions</th>
+                {['Bulk ID', 'Customer', 'Qty', 'Total', 'Delivery Date', 'Payment', 'Status', 'Actions'].map((heading) => (
+                  <th
+                    key={heading}
+                    style={{
+                      padding: '12px 20px',
+                      textAlign: 'left',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      color: 'var(--admin-text-secondary)',
+                      borderBottom: '1px solid var(--admin-border)',
+                    }}
+                  >
+                    {heading}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map(order => (
-                <tr key={order.id}>
-                  <td>
-                    <span className="bulk-order-id">{order.id}</span>
-                  </td>
-                  <td>
-                    <div className="bulk-customer-cell">
-                      <User size={14} />
-                      <span>{order.customer?.name || 'N/A'}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="bulk-items-cell">
-                      {order.items?.slice(0, 2).map((item, idx) => (
-                        <div key={idx} className="bulk-item-tag">
-                          <Cake size={12} />
-                          {item.name} x{item.quantity}
+              {loading ? (
+                <tr><td colSpan={8} style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>Loading bulk orders...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>No bulk orders found</td></tr>
+              ) : filtered.map((order) => {
+                const orderId = order.bulkOrderId || order.id;
+                const status = normalizeStatus(order);
+                const isUpdating = updatingId === orderId;
+                const isAwaitingAdminAcceptance = status === 'awaiting_admin_acceptance';
+                const isAwaitingUserPayment = status === 'awaiting_user_payment';
+                const isInProgress = status === 'in_progress';
+                const isReady = status === 'ready';
+                const isOutForDelivery = status === 'out_for_delivery';
+                const canReject = ['awaiting_admin_acceptance', 'awaiting_user_payment', 'in_progress', 'ready'].includes(status);
+
+                return (
+                  <tr key={order._id || orderId} style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                    <td style={{ padding: '14px 20px', color: 'var(--admin-accent)', fontWeight: 600 }}>{orderId}</td>
+                    <td style={{ padding: '14px 20px' }}>
+                      <div>{order.customer?.name || order.customerName || '-'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--admin-text-secondary)' }}>{order.customer?.email || order.customerEmail || '-'}</div>
+                    </td>
+                    <td style={{ padding: '14px 20px' }}>{order.totalQuantity || 0}</td>
+                    <td style={{ padding: '14px 20px', fontWeight: 600 }}>Rs. {Number(order.totalAmount || order.total || 0).toLocaleString()}</td>
+                    <td style={{ padding: '14px 20px', color: 'var(--admin-text-secondary)' }}>
+                      {order.requestedDeliveryDate ? new Date(order.requestedDeliveryDate).toLocaleDateString() : order.preferredDate || '-'}
+                    </td>
+                    <td style={{ padding: '14px 20px', color: 'var(--admin-text-secondary)' }}>
+                      <div>{order.paymentMethod ? order.paymentMethod.replace(/_/g, ' ') : 'Not selected'}</div>
+                      <div style={{ fontSize: 12 }}>{order.paymentStatus || 'pending'}</div>
+                    </td>
+                    <td style={{ padding: '14px 20px' }}>
+                      <span className={`admin-badge admin-badge-${statusColors[status] || 'info'}`}>
+                        {formatStatus(status)}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 20px' }}>
+                      {isAwaitingAdminAcceptance ? (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="admin-btn admin-btn-primary"
+                            style={{ padding: '6px 14px', fontSize: 12 }}
+                            onClick={() => handleApprove(orderId)}
+                            disabled={isUpdating}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="admin-btn admin-btn-danger"
+                            style={{ padding: '6px 14px', fontSize: 12 }}
+                            onClick={() => handleReject(orderId)}
+                            disabled={isUpdating}
+                          >
+                            Reject
+                          </button>
                         </div>
-                      ))}
-                      {order.items?.length > 2 && (
-                        <span className="bulk-more-items">+{order.items.length - 2} more</span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="bulk-date-cell">
-                      <Calendar size={14} />
-                      <span>{order.preferredDate || order.deliveryDate || 'N/A'}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="bulk-qty-badge">{order.totalQuantity} pcs</span>
-                  </td>
-                  <td>
-                    <span className="bulk-amount">${order.total?.toFixed(2)}</span>
-                  </td>
-                  <td>
-                    <span className={`bulk-status-badge status-${order.status}`}>
-                      {getStatusIcon(order.status)}
-                      {getStatusLabel(order.status)}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="bulk-action-buttons">
-                      <button
-                        className="bulk-action-btn view"
-                        onClick={() => handleViewOrder(order)}
-                      >
-                        <Eye size={14} />
-                        View
-                      </button>
-                      {order.status === 'pending_approval' && (
-                        <>
+                      ) : isAwaitingUserPayment ? (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <span style={{ color: 'var(--admin-text-secondary)', fontSize: 12 }}>
+                            Waiting for user payment
+                          </span>
+                          {canReject && (
+                            <button
+                              className="admin-btn admin-btn-danger"
+                              style={{ padding: '6px 14px', fontSize: 12 }}
+                              onClick={() => handleReject(orderId)}
+                              disabled={isUpdating}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+                      ) : isInProgress ? (
+                        <div style={{ display: 'flex', gap: 6 }}>
                           <button
-                            className="bulk-action-btn confirm"
-                            onClick={() => handleConfirm(order.id)}
+                            className="admin-btn admin-btn-primary"
+                            style={{ padding: '6px 14px', fontSize: 12 }}
+                            onClick={() => handleStatusUpdate(orderId, 'ready', 'Bulk order marked as ready')}
+                            disabled={isUpdating}
                           >
-                            <CheckCircle size={14} />
+                            Ready
                           </button>
+                          {canReject && (
+                            <button
+                              className="admin-btn admin-btn-danger"
+                              style={{ padding: '6px 14px', fontSize: 12 }}
+                              onClick={() => handleReject(orderId)}
+                              disabled={isUpdating}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+                      ) : isReady ? (
+                        <div style={{ display: 'flex', gap: 6 }}>
                           <button
-                            className="bulk-action-btn cancel"
-                            onClick={() => handleCancel(order.id)}
+                            className="admin-btn admin-btn-primary"
+                            style={{ padding: '6px 14px', fontSize: 12 }}
+                            onClick={() => handleStatusUpdate(orderId, 'out_for_delivery', 'Bulk order is out for delivery')}
+                            disabled={isUpdating}
                           >
-                            <XCircle size={14} />
+                            Out for Delivery
                           </button>
-                        </>
+                          {canReject && (
+                            <button
+                              className="admin-btn admin-btn-danger"
+                              style={{ padding: '6px 14px', fontSize: 12 }}
+                              onClick={() => handleReject(orderId)}
+                              disabled={isUpdating}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+                      ) : isOutForDelivery ? (
+                        <button
+                          className="admin-btn admin-btn-primary"
+                          style={{ padding: '6px 14px', fontSize: 12 }}
+                          onClick={() => handleStatusUpdate(orderId, 'delivered', 'Bulk order marked as delivered')}
+                          disabled={isUpdating}
+                        >
+                          Delivered
+                        </button>
+                      ) : (
+                        <span style={{ color: 'var(--admin-text-secondary)', fontSize: 12 }}>No actions</span>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      )}
-
-      {isModalOpen && selectedOrder && (
-        <div className="bulk-modal-overlay" onClick={closeModal}>
-          <div className="bulk-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button onClick={closeModal} className="bulk-modal-close">&times;</button>
-
-            <div className="bulk-modal-header">
-              <div>
-                <h2>{selectedOrder.id}</h2>
-                <span className={`bulk-status-badge status-${selectedOrder.status}`}>
-                  {getStatusIcon(selectedOrder.status)}
-                  {getStatusLabel(selectedOrder.status)}
-                </span>
-              </div>
-              <div className="bulk-modal-total">${selectedOrder.total?.toFixed(2)}</div>
-            </div>
-
-            <div className="bulk-modal-grid">
-              <div className="bulk-modal-section">
-                <h3><User size={18} /> Customer Details</h3>
-                <div className="bulk-modal-info">
-                  <div className="bulk-modal-info-item">
-                    <User size={16} />
-                    <div>
-                      <label>Name</label>
-                      <span>{selectedOrder.customer?.name}</span>
-                    </div>
-                  </div>
-                  <div className="bulk-modal-info-item">
-                    <Mail size={16} />
-                    <div>
-                      <label>Email</label>
-                      <span>{selectedOrder.customer?.email}</span>
-                    </div>
-                  </div>
-                  <div className="bulk-modal-info-item">
-                    <Phone size={16} />
-                    <div>
-                      <label>Phone</label>
-                      <span>{selectedOrder.customer?.phone}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bulk-modal-section">
-                <h3><Calendar size={18} /> Schedule</h3>
-                <div className="bulk-modal-info">
-                  <div className="bulk-modal-info-item">
-                    <Calendar size={16} />
-                    <div>
-                      <label>Preferred Date</label>
-                      <span>{formatDate(selectedOrder.preferredDate || selectedOrder.deliveryDate)}</span>
-                    </div>
-                  </div>
-                  <div className="bulk-modal-info-item">
-                    <Clock size={16} />
-                    <div>
-                      <label>Preferred Time</label>
-                      <span>{formatTime(selectedOrder.preferredTime || selectedOrder.deliveryTime)}</span>
-                    </div>
-                  </div>
-                  {selectedOrder.alternateDate && (
-                    <div className="bulk-modal-info-item">
-                      <Calendar size={16} />
-                      <div>
-                        <label>Alternate Date</label>
-                        <span>{formatDate(selectedOrder.alternateDate)} at {formatTime(selectedOrder.alternateTime)}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="bulk-modal-section">
-              <h3><Package size={18} /> Delivery</h3>
-              <div className="bulk-modal-delivery-row">
-                <span><strong>Type:</strong> {selectedOrder.deliveryOption === 'delivery' ? 'Home Delivery' : 'Takeaway'}</span>
-                <span><strong>Qty:</strong> {selectedOrder.totalQuantity} pieces</span>
-              </div>
-              {selectedOrder.address && (
-                <div className="bulk-modal-info-item">
-                  <MapPin size={16} />
-                  <div>
-                    <label>Address</label>
-                    <span>{selectedOrder.address}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="bulk-modal-section">
-              <h3><Cake size={18} /> Order Items</h3>
-              <div className="bulk-modal-items">
-                {selectedOrder.items?.map((item, idx) => (
-                  <div key={idx} className="bulk-modal-item">
-                    <img src={item.image} alt={item.name} className="bulk-modal-item-img" />
-                    <div className="bulk-modal-item-info">
-                      <span className="bulk-modal-item-name">{item.name}</span>
-                      <div className="bulk-modal-item-meta">
-                        <span>${item.price?.toFixed(2)} each</span>
-                        <span>Qty: {item.quantity}</span>
-                      </div>
-                    </div>
-                    <span className="bulk-modal-item-total">
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {(selectedOrder.additionalNotes || selectedOrder.specialInstructions) && (
-              <div className="bulk-modal-section">
-                <h3><AlertCircle size={18} /> Notes</h3>
-                <p className="bulk-modal-notes">
-                  {selectedOrder.additionalNotes || selectedOrder.specialInstructions}
-                </p>
-              </div>
-            )}
-
-            <div className="bulk-modal-summary">
-              <div className="bulk-modal-summary-row">
-                <span>Subtotal</span>
-                <span>${selectedOrder.subtotal?.toFixed(2)}</span>
-              </div>
-              <div className="bulk-modal-summary-row">
-                <span>Tax</span>
-                <span>${selectedOrder.tax?.toFixed(2)}</span>
-              </div>
-              <div className="bulk-modal-summary-row">
-                <span>Shipping</span>
-                <span>${selectedOrder.shipping?.toFixed(2)}</span>
-              </div>
-              <div className="bulk-modal-summary-row total">
-                <span>Total</span>
-                <span>${selectedOrder.total?.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {selectedOrder.status === 'pending_approval' && (
-              <div className="bulk-modal-actions">
-                <button
-                  className="bulk-modal-btn confirm"
-                  onClick={() => handleConfirm(selectedOrder.id)}
-                >
-                  <CheckCircle size={18} />
-                  Confirm Order
-                </button>
-                <button
-                  className="bulk-modal-btn cancel"
-                  onClick={() => handleCancel(selectedOrder.id)}
-                >
-                  <XCircle size={18} />
-                  Cancel Order
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

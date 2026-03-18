@@ -202,7 +202,7 @@ const AdminSettings = () => {
                   onChange={(e) => setSettings({...settings, currency: e.target.value})}
                 >
                   <option value="Rs">Rupees (Rs)</option>
-                  <option value="$">Dollars ($)</option>
+                  <option value="LKR">Sri Lankan Rupees (LKR)</option>
                   <option value="€">Euros (€)</option>
                   <option value="£">Pounds (£)</option>
                 </select>

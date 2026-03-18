@@ -25,7 +25,8 @@
   animation: successBounce 0.6s ease;
 }
 
-.success-card [data-status="pending_approval"] ~ .success-icon-wrapper svg {
+.success-card [data-status="pending_approval"] ~ .success-icon-wrapper svg,
+.success-card [data-status="awaiting_admin_acceptance"] ~ .success-icon-wrapper svg {
   color: #ff9800;
 }
 
@@ -177,6 +178,11 @@
 }
 
 .success-status-badge[data-status="pending_approval"] {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.success-status-badge[data-status="awaiting_admin_acceptance"] {
   background: #fff3e0;
   color: #e65100;
 }

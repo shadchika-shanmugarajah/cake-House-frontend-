@@ -1,0 +1,90 @@
+# =========================
+# Environment variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Logs
+# =========================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# Dependency directories
+# =========================
+node_modules/
+vendor/
+
+# =========================
+# Build / output
+# =========================
+dist/
+build/
+out/
+coverage/
+
+# =========================
+# Python (if applicable)
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv/
+pip-wheel-metadata/
+
+# =========================
+# Database / local files
+# =========================
+*.sqlite
+*.db
+*.db-journal
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# =========================
+# Docker (optional)
+# =========================
+docker-compose.override.yml
+
+# =========================
+# Misc
+# =========================
+*.tmp
+*.temp
+.cache/
+
+# =========================
+# Test outputs
+# =========================
+coverage/
+.nyc_output/
+
+# =========================
+# Secrets
+# =========================
+*.pem
+*.key
+*.crt

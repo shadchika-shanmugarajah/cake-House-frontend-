@@ -199,10 +199,6 @@ const Register = () => {
             Already have an account?{' '}
             <Link to="/login">Sign in here</Link>
           </p>
-
-          <Link to="/auth" className="back-to-auth">
-            ← Back to role selection
-          </Link>
         </form>
       </div>
     </div>
